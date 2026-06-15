@@ -103,6 +103,7 @@ body { background: #1a0d14; color: #f5e8de; height: 100vh; display: flex; flex-d
   <div class="tab" onclick="setMode('edge')">⚠️ Cas limites</div>
   <div class="tab" onclick="setMode('security')">🛡️ Sécurité femmes</div>
   <div class="tab" onclick="setMode('legal')">⚖️ Légal LPD</div>
+  <div class="tab" onclick="setMode('fiabilite')">⭐ Fiabilité</div>
 </div>
 
 <div class="legend">
@@ -309,6 +310,103 @@ const LEGAL = [
     }},
 ];
 
+// ── FIABILITÉ & ANTI-GHOSTING ──────────────────────────────────────────
+const FIABILITE = [
+  { id:'R0', emoji:'🔒', title:'Philosophie anti-ghosting', sub:'Le problème de fond', who:'both', status:'ok',
+    detail:{ scenario:'La promesse de Clutch : un match = un vrai RDV. Mais comment vérifier sans surveillance invasive ?',
+      status:'ok', label:'✅ Décision prise',
+      checks:[
+        'Un Clutch accepté = engagement moral. Partir = pénalité.',
+        'GPS check-in silencieux (bouton "J\'y suis") — pas de QR code, pas de police',
+        'Score fiabilité visible sur le profil → auto-régulation communautaire',
+        'On ne peut PAS prouver à 100% qu\'on était là. C\'est la limite acceptée.',
+      ],
+      verify:['Le système décourage-t-il les cancellations de dernière minute ?','Le score est-il visible AVANT d\'envoyer un Clutch ?'],
+      missing:['Pas de surveillance continue — décision éthique délibérée'],
+      legal:['LPD : GPS = donnée sensible. Consentement explicite requis avant check-in','On stocke uniquement le résultat (vérifié/non-vérifié), pas la position GPS brute'],
+    }},
+  { id:'R1', emoji:'📍', title:'GPS check-in au RDV', sub:'Vérification silencieuse présence', who:'both', status:'ok',
+    detail:{ scenario:'Quand l\'utilisateur clique "J\'y suis", l\'app capture sa position GPS et vérifie s\'il est à moins de 300m du lieu de RDV.',
+      status:'ok', label:'✅ Implémenté',
+      checks:[
+        'Bouton "J\'y suis" apparaît quand RDV est passé (ProximityRadar)',
+        'GPS demandé au moment du clic — pas de tracking en continu',
+        'Si GPS à <300m du lieu → badge "Présence vérifiée GPS 📍"',
+        'Si GPS refusé ou hors zone → check-in enregistré sans badge (neutre)',
+        'venue_lat/venue_lng sauvés lors de la création du Clutch (Nominatim)',
+        'checkin_verified = true/false sauvé en DB',
+      ],
+      verify:['Test : cliquer "J\'y suis" depuis chez soi vs depuis le lieu → résultats différents ?','Le badge GPS apparaît-il dans le feedback post-RDV ?'],
+      missing:['Afficher le badge GPS dans l\'historique des Clutchs'],
+      legal:['GPS capturé une seule fois, au moment du clic — pas de tracking en arrière-plan','Position brute jamais stockée — uniquement le bool vérifié/non-vérifié'],
+    }},
+  { id:'R2', emoji:'🎭', title:'Les 5 scénarios post-RDV', sub:'Qui peut prouver quoi ?', who:'both', status:'warn',
+    detail:{ scenario:'Les différents cas possibles après l\'heure de RDV, et ce que l\'app peut (ou ne peut pas) détecter.',
+      status:'warn', label:'⚠️ Cas gris existants',
+      checks:[
+        '✅ A là + B là, les deux cliquent → RDV réussi, scores OK',
+        '✅ A là (GPS ✓) + B absent → A prouvé, B prend pénalité lapin (-20pts)',
+        '⚠️ A là + B vient, voit A, repart SANS cliquer → B pénalisé (a accepté = responsabilité)',
+        '⚠️ A là + B vient, CLIQUE puis repart → techniquement vu comme présent. Non résolvable sans surveillance.',
+        '❓ Ni A ni B ne cliquent → expire silencieusement, scores neutres',
+        '❓ A ment "B n\'était pas là" mais B a GPS ✓ → B a la preuve, A tort',
+      ],
+      verify:['Cas gris accepté : B clique et repart. Impossible à distinguer sans tracking continu.'],
+      missing:[
+        'Option "Parti·e après 2 min" dans le feedback → signal accumulable au fil du temps',
+        'Si un user reçoit 3x ce feedback → score baisse automatiquement (à implémenter)',
+      ],
+      legal:['On ne peut pas condamner quelqu\'un sur la base d\'une accusation non prouvée','Feedback = signal de réputation, pas une sanction automatique'],
+    }},
+  { id:'R3', emoji:'📊', title:'Feedback post-RDV', sub:'5 options + GPS badge', who:'both', status:'ok',
+    detail:{ scenario:'Après chaque RDV (check-in ou expiration), un écran de feedback s\'affiche.',
+      status:'ok', label:'✅ Implémenté',
+      checks:[
+        '🌟 Super RDV (+5 pts fiabilité)',
+        '👍 Bien, sympa (+3 pts)',
+        '🚶 Parti·e après 2 min (-15 pts pour l\'autre)',
+        '🐰 Lapin — personne pas venue (-20 pts pour l\'autre)',
+        '👻 Je n\'y suis pas allé·e (-15 pts sur moi-même)',
+        'Si GPS vérifié : badge "Présence vérifiée GPS 📍" visible dans le feedback',
+        'Sauvegardé en DB table feedback (clutch_id, given_by, to_user_id, rating, gps_verified)',
+      ],
+      verify:['Le feedback est-il déclenché automatiquement après l\'heure de RDV (sans check-in) ?','Un utilisateur peut-il donner le même feedback deux fois sur le même Clutch ?'],
+      missing:['Score fiabilité recalculé automatiquement depuis table feedback (trigger Supabase)','Notification à l\'autre personne quand il reçoit un feedback négatif'],
+      legal:['Feedback visible uniquement par les deux parties — pas public','Option "Contester un feedback" à envisager en V2'],
+    }},
+  { id:'R4', emoji:'🔢', title:'Score fiabilité', sub:'Comment il évolue', who:'both', status:'warn',
+    detail:{ scenario:'Le score fiabilité (étoiles salmon sur le profil) est la clé de l\'auto-régulation.',
+      status:'warn', label:'⚠️ Calcul à fiabiliser',
+      checks:[
+        'Score initial : 80/100',
+        'Super RDV : +5 pts | Bien : +3 pts',
+        'Lapin : -20 pts | Parti tôt : -15 pts | J\'ai ghosté : -15 pts sur moi',
+        'Score visible sur le profil AVANT d\'envoyer un Clutch',
+        'Score < 50 → pas de Clutch possible (à implémenter)',
+      ],
+      verify:['Un serial-ghoster finit-il vraiment avec un mauvais score ?','Le score est-il recalculé depuis la table feedback ou seulement mis à jour manuellement ?'],
+      missing:[
+        'Trigger Supabase : recalcul automatique score depuis table feedback',
+        'Score < 50 → compte suspendu temporairement (anti-abus)',
+        'Score < 30 → ban permanent',
+      ],
+      legal:['LPD : score = profil de personnalité = donnée sensible. Droit de consultation et rectification.','Si contestation : procédure de révision manuelle par équipe Clutch'],
+    }},
+  { id:'R5', emoji:'🚫', title:'Anti-doublon Clutch', sub:'Un seul Clutch actif à la fois', who:'both', status:'ok',
+    detail:{ scenario:'Un utilisateur ne peut pas envoyer ou recevoir un nouveau Clutch s\'il a déjà un Verrou actif.',
+      status:'ok', label:'✅ Implémenté',
+      checks:[
+        'Envoi bloqué si sender a un Clutch confirmed/accepted',
+        'Envoi bloqué si receiver a un Clutch confirmed/accepted',
+        'Auto-décliné si nouveau Clutch reçu pendant qu\'un Verrou est actif',
+        'Envoi bloqué si Clutch pending/confirmed avec cette même personne',
+      ],
+      verify:['Test : avoir un Verrou actif + tenter d\'envoyer un Clutch → bloqué ?','Test : quelqu\'un t\'envoie un Clutch pendant ton Verrou → auto-décliné ?'],
+      missing:['Notification à l\'envoyeur : "Cette personne a un RDV actif — réessaie plus tard"'],
+      legal:['Protège les deux parties d\'un engagement simultané impossible'],
+    }},
+];
+
 // ── FULL TREE (simplified) ──────────────────────────────────────────
 const FULL_NODES = [
   { id:'F0', emoji:'📱', title:'Ouverture app', sub:'Point d\'entrée', who:'both', status:'ok',
@@ -373,6 +471,7 @@ function setMode(m) {
   else if (m === 'edge') { currentData = EDGE; document.getElementById('mode-badge').textContent = '⚠️ CAS LIMITES'; document.getElementById('mode-badge').style.background = '#ef444422'; document.getElementById('mode-badge').style.color = '#ef4444'; document.getElementById('mode-badge').style.borderColor = '#ef444466'; }
   else if (m === 'security') { currentData = SECURITY; document.getElementById('mode-badge').textContent = '🛡️ SÉCURITÉ'; document.getElementById('mode-badge').style.background = '#8b5cf622'; document.getElementById('mode-badge').style.color = '#8b5cf6'; document.getElementById('mode-badge').style.borderColor = '#8b5cf666'; }
   else if (m === 'legal') { currentData = LEGAL; document.getElementById('mode-badge').textContent = '⚖️ LÉGAL LPD'; document.getElementById('mode-badge').style.background = '#38bdf822'; document.getElementById('mode-badge').style.color = '#38bdf8'; document.getElementById('mode-badge').style.borderColor = '#38bdf866'; }
+  else if (m === 'fiabilite') { currentData = FIABILITE; document.getElementById('mode-badge').textContent = '⭐ FIABILITÉ'; document.getElementById('mode-badge').style.background = '#C8860A22'; document.getElementById('mode-badge').style.color = '#C8860A'; document.getElementById('mode-badge').style.borderColor = '#C8860A66'; }
 
   visible = 1; selectedId = null;
   document.getElementById('detail').innerHTML = '<div class="detail-empty">← Clique sur une étape</div>';
