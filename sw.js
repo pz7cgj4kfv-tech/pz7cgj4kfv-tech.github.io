@@ -1,7 +1,7 @@
-// Clutch Service Worker — v11.06-S
+// Clutch Service Worker — v17.06-K
 // Push notifications ONLY — no caching to prevent stale JS chunks
 
-const CACHE_VERSION = 'clutch-v11'
+const CACHE_VERSION = 'clutch-v17k'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
@@ -22,8 +22,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   // Only handle same-origin requests, pass everything else through
   if (!e.request.url.startsWith(self.location.origin)) return
-  // Never cache — always go to network
-  e.respondWith(fetch(e.request).catch(() => Response.error()))
+  // Never cache — always go to network, bypass HTTP cache
+  e.respondWith(fetch(e.request, { cache: 'no-store' }).catch(() => Response.error()))
 })
 
 // ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
