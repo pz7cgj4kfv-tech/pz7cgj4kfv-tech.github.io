@@ -1,7 +1,7 @@
-// Clutch Service Worker — v17.06-Z5
+// Clutch Service Worker — v17.06-Z6
 // Push notifications ONLY — no caching to prevent stale JS chunks
 
-const CACHE_VERSION = 'clutch-v17z5'
+const CACHE_VERSION = 'clutch-v17z6'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
