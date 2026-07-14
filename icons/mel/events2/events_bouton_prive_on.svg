@@ -24,6 +24,6 @@
 		c-0.004,0-0.004,0-0.004,0c-1.078,0-3.473-0.494-3.574-5.054v-18.199c0-0.385-0.484-0.812-1.184-0.812
 		c-0.703,0-1.188,0.428-1.188,0.812v28.601c0,4.514-2.707,4.863-3.535,4.863c-1.125,0.002-2.27-0.543-3.402-1.617
 		c-0.012-0.012-0.176-0.172-0.188-0.186l-3.602-3.566C215.48,429.387,215.304,429.373,215.207,429.373z"/>
-	<text transform="matrix(1 0 0 1 294.354 432.9082)" fill="#EB6BB0" font-family="'SFUIText-Bold'" font-size="38.9611">Privé</text>
+	<text transform="matrix(1 0 0 1 294.354 432.9082)" fill="#EB6BB0" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="38.9611">Privé</text>
 </g>
 </svg>

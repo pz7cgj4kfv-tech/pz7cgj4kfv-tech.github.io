@@ -40,5 +40,5 @@
 		c0.344,0,0.688-0.121,0.965-0.368l1.18-1.052c0.043,0.034,0.105,0.078,0.125,0.095c0.086,0.05,1.27,0.724,3.297,0.722
 		c1.516,0,3.527-0.424,5.883-1.73c2.195,0.829,4.246,1.491,6.047,2.048C250.831,422.139,252.206,422.819,251.944,424.68z"/>
 </g>
-<text transform="matrix(1 0 0 1 267.1201 430.915)" fill="#EB6BB0" font-family="'SFUIText-Bold'" font-size="32.4676">Lifestyle</text>
+<text transform="matrix(1 0 0 1 267.1201 430.915)" fill="#EB6BB0" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="32.4676">Lifestyle</text>
 </svg>

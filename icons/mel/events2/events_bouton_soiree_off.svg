@@ -99,6 +99,6 @@
 				s-1.711,0.02-2.547,0.051c-0.027,0.84-0.055,1.688-0.055,2.547C233.593,423.611,233.621,424.459,233.648,425.293z"/>
 		</g>
 	</g>
-	<text transform="matrix(1 0 0 1 285.8179 430.9141)" fill="#B2B2B2" font-family="'SFUIText-Bold'" font-size="32.4676">Soirée</text>
+	<text transform="matrix(1 0 0 1 285.8179 430.9141)" fill="#B2B2B2" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="32.4676">Soirée</text>
 </g>
 </svg>

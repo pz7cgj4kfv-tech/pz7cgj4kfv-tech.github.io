@@ -29,17 +29,17 @@
 	</g>
 </g>
 <g id="name">
-	<text transform="matrix(1 0 0 1 86.9062 20.6138)" fill="#706F6F" font-family="'SFUIText-Bold'" font-size="18.1023">Isabella</text>
+	<text transform="matrix(1 0 0 1 86.9062 20.6138)" fill="#706F6F" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="18.1023">Isabella</text>
 </g>
 <g id="age">
-	<text transform="matrix(1 0 0 1 159.688 20.6138)"><tspan x="0" y="0" fill="#706F6F" font-family="'SFUIText-Bold'" font-size="9.0511">  </tspan><tspan x="4.667" y="0" fill="#706F6F" font-family="'SFUIText-Bold'" font-size="8.8116">25 ans</tspan></text>
+	<text transform="matrix(1 0 0 1 159.688 20.6138)"><tspan x="0" y="0" fill="#706F6F" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="9.0511">  </tspan><tspan x="4.667" y="0" fill="#706F6F" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="8.8116">25 ans</tspan></text>
 </g>
 <g id="comment">
-	<text transform="matrix(1 0 0 1 73.1387 36.8667)"><tspan x="0" y="0" fill="#707070" font-family="'SFUIText-Bold'" font-size="8.7999">Envie d’aller me baigner, quelqu’un vient avec moi?</tspan><tspan x="0" y="10.56" fill="#707070" font-family="'SFUIText-Bold'" font-size="8.7999">Merci!</tspan></text>
+	<text transform="matrix(1 0 0 1 73.1387 36.8667)"><tspan x="0" y="0" fill="#707070" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="8.7999">Envie d’aller me baigner, quelqu’un vient avec moi?</tspan><tspan x="0" y="10.56" fill="#707070" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="8.7999">Merci!</tspan></text>
 </g>
 <g id="distance">
 	<g>
-		<text transform="matrix(1 0 0 1 73.1387 62.8481)" fill="#7C7B7C" font-family="'SFUIText-Bold'" font-size="10.0917">A deux pas</text>
+		<text transform="matrix(1 0 0 1 73.1387 62.8481)" fill="#7C7B7C" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="10.0917">A deux pas</text>
 	</g>
 </g>
 <g id="pin">

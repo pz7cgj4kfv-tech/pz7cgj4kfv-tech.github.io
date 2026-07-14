@@ -7,7 +7,7 @@
 	c0-6.412-5.199-11.611-11.613-11.611H273.582c-9.455-15.779-26.711-26.344-46.445-26.344c-29.887,0-54.113,24.229-54.113,54.113
 	c0,29.887,24.227,54.111,54.113,54.111c19.734,0,36.99-10.564,46.445-26.342h145.192c6.414-0.002,11.613-5.195,11.613-11.613V432.65
 	z"/>
-<text transform="matrix(1 0 0 1 283.3457 460.7715)" fill="#EB6BB0" font-family="'SFUIText-Bold'" font-size="38.9611">Souple</text>
+<text transform="matrix(1 0 0 1 283.3457 460.7715)" fill="#EB6BB0" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text','SFUIText-Bold',Helvetica,Arial,sans-serif" font-weight="700" font-size="38.9611">Souple</text>
 <g>
 	<path fill="#77BC1F" d="M243.033,449.754c-2.83,0-5.133-2.303-5.133-5.135s2.303-5.137,5.133-5.137
 		c2.832,0,5.137,2.305,5.137,5.137S245.865,449.754,243.033,449.754z"/>
