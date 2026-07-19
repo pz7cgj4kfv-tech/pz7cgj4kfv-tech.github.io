@@ -1,0 +1,201 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// 🌀 ZONE DE PROPOSITION — le module « pavage » de Dom porté en TS pur (v3, §3bis+, 08.07.2026).
+// Source : prototype HTML de Dom (Forteresse causale · module zone de proposition · v3).
+// Prouvé par scripts/test-zone-proposition.mts.
+//
+// Ce que fait ce module (Graal 2 — intraçabilité) :
+//  • Intersection des deux zones de dispo (lentille) → CERCLE ENGLOBANT + MARGE, dont le centre
+//    ne correspond à RIEN ni PERSONNE (décentrage déterministe).
+//  • ⚓ ANCRE IMMUABLE PAR PAIRE (upgrade v3 de Dom) : le gros flou (0.8–1.5 km) appliqué au point
+//    déclaré de la cible est dérivé de hash(viewer, cible) SEUL — il ne change JAMAIS d'une Fenêtre
+//    à l'autre → ouvrir 100 Fenêtres ne donne RIEN à moyenner (la Fuite 3 meurt vraiment).
+//  • Flous secondaires (décentrage du cercle, tampon de seuil) : hash(viewer, cible, fenêtre) —
+//    stables dans la Fenêtre, changent à la suivante.
+//  • 🛡️ PARADE 3 : la bascule « faisable → pas faisable » se fait AVANT le contact géométrique
+//    exact (tampon déterministe 200–650 m) → l'oracle de disjonction devient flou.
+//  • Marge auto 0–10 selon l'URBANITÉ (Q-Dom-2 tranchée : automatique, jamais exposée),
+//    amplifiée quand l'intersection est petite (plus c'est tendu, plus c'est flou).
+//
+// ⚠️ IMPORTANT : côté client on ne passe à ce module que des positions DÉJÀ arrondies ~1 km
+// (PROFILES_READ). L'ancre re-flotte par-dessus. La version SERVEUR (RPC) fera foi (Phase 3).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type Pt = { lat: number; lng: number }
+
+const rad = (d: number) => d * Math.PI / 180
+
+export function havKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2
+  return 2 * 6371.0 * Math.asin(Math.sqrt(a))
+}
+function offset(lat: number, lng: number, dKm: number, theta: number): Pt {
+  return {
+    lat: lat + (dKm * Math.sin(theta)) / 111.32,
+    lng: lng + (dKm * Math.cos(theta)) / (111.32 * Math.cos(rad(lat))),
+  }
+}
+function bearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dy = (lat2 - lat1) * 111.32
+  const dx = (lon2 - lon1) * 111.32 * Math.cos(rad(lat1))
+  return Math.atan2(dy, dx)
+}
+
+// ── 🏙️ URBANITÉ (U, 0.5–10) — V1 : centres romands + décroissance exponentielle (Dom v3).
+//    V2 (plus tard) : l'intensité Clutch réelle (présences + événements actifs dans la zone).
+const CENTERS = [
+  { name: 'Genève',   lat: 46.2044, lng: 6.1432, maxVal: 10.0, S: 9.0 },
+  { name: 'Lausanne', lat: 46.5197, lng: 6.6323, maxVal: 9.2,  S: 7.5 },
+  { name: 'Morges',   lat: 46.5111, lng: 6.4983, maxVal: 6.5,  S: 4.5 },
+  { name: 'Nyon',     lat: 46.3833, lng: 6.2396, maxVal: 6.0,  S: 4.5 },
+  { name: 'Vevey',    lat: 46.4628, lng: 6.8419, maxVal: 6.5,  S: 4.5 },
+]
+export function urbanity(lat: number, lng: number): number {
+  let u = 0
+  for (const c of CENTERS) u = Math.max(u, c.maxVal * Math.exp(-havKm(lat, lng, c.lat, c.lng) / c.S))
+  return Math.min(10.0, Math.max(0.5, u))
+}
+// Rayon EFFECTIF : en zone dense on n'a pas besoin d'aller loin (Dom).
+export const effRadius = (rIn: number, U: number) => rIn / (1.0 + 0.08 * U)
+
+// ── PRNG déterministe (xmur3 + mulberry32 — Dom, inchangé) ──────────────────
+function xmur3(str: string) {
+  let h = 1779033703 ^ str.length
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353)
+    h = (h << 13) | (h >>> 19)
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822507)
+    h = Math.imul(h ^ (h >>> 13), 3266489909)
+    return (h ^= h >>> 16) >>> 0
+  }
+}
+function mulberry32(a: number) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// ⚓ ANCRE : hash(viewer, cible) SEUL — IMMUABLE pour la paire (upgrade v3).
+export function pairAnchorNoise(viewerId: string, targetId: string) {
+  const rng = mulberry32(xmur3(`anchor|${viewerId}|${targetId}`)())
+  return { anchorD: 0.8 + rng() * 0.7, anchorTheta: rng() * 2 * Math.PI }
+}
+// Flous SECONDAIRES : hash(viewer, cible, fenêtre) — stables dans la Fenêtre.
+export function pairFenNoise(viewerId: string, targetId: string, fenetreId: string) {
+  const seed = xmur3(`fen|${viewerId}|${targetId}|${fenetreId}`)()
+  const rng = mulberry32(seed)
+  return {
+    seedHex: seed.toString(16).slice(0, 6),
+    cJitterFrac: 0.30 + rng() * 0.45,
+    cJitterTheta: rng() * 2 * Math.PI,
+    contactBuf: 0.20 + rng() * 0.45,   // km — parade 3 (tampon de seuil)
+  }
+}
+
+export interface Zone {
+  disjoint: boolean
+  uZone: number; rk: number; rc: number; d: number; M: number
+  seedHex: string
+  margin?: number
+  lens?: { c: Pt; r: number }        // la vraie lentille (DEBUG UNIQUEMENT — jamais affichée)
+  disp?: { c: Pt; r: number }        // LE cercle affiché : englobant + marge, centre factice
+  anchor?: Pt                        // point ancré de la cible (DEBUG UNIQUEMENT)
+}
+
+// Budgets §3bis+ (v3 Dom) — en prod ces valeurs vivront en config serveur.
+export const ZONE_LIMITS = { SOFT_FEN: 8, HARD_FEN: 12, DAY: 30, FEN_COST: 3 }
+
+export function computeZone(o: {
+  me: Pt; targetDecl: Pt
+  rMyKm: number; rTargetKm: number
+  viewerId: string; targetId: string; fenetreId: string
+  flexKm?: number
+}): Zone {
+  const anchorNoise = pairAnchorNoise(o.viewerId, o.targetId)
+  const fen = pairFenNoise(o.viewerId, o.targetId, o.fenetreId)
+  const anchor = offset(o.targetDecl.lat, o.targetDecl.lng, anchorNoise.anchorD, anchorNoise.anchorTheta)
+  const uZone = urbanity((o.me.lat + anchor.lat) / 2, (o.me.lng + anchor.lng) / 2)
+  const rk = effRadius(o.rMyKm, urbanity(o.me.lat, o.me.lng)) + (o.flexKm || 0)
+  const rc = effRadius(o.rTargetKm, urbanity(anchor.lat, anchor.lng))
+  const d = havKm(o.me.lat, o.me.lng, anchor.lat, anchor.lng)
+
+  const M = Math.max(0, Math.min(10, Math.round(10 - uZone)))
+  // 🛡️ PARADE 3 : disjonction AVANT le contact exact (tampon déterministe par paire+fenêtre)
+  if (d >= rk + rc - fen.contactBuf) return { disjoint: true, uZone, rk, rc, d, M, seedHex: fen.seedHex }
+
+  // Cercle couvrant la lentille : points candidats exacts + échantillonnage de sécurité (Dom, inchangé)
+  const th = bearing(o.me.lat, o.me.lng, anchor.lat, anchor.lng)
+  const a = Math.max(-rk, d - rc)
+  const b = Math.min(rk, d + rc)
+  const cLens = offset(o.me.lat, o.me.lng, (a + b) / 2, th)
+  const cand: Pt[] = [offset(o.me.lat, o.me.lng, a, th), offset(o.me.lat, o.me.lng, b, th)]
+  const inK = (p: Pt) => havKm(o.me.lat, o.me.lng, p.lat, p.lng) <= rk + 1e-9
+  const inC = (p: Pt) => havKm(anchor.lat, anchor.lng, p.lat, p.lng) <= rc + 1e-9
+  if (d + rc > rk && d + rk > rc) {
+    const aa = (d * d + rk * rk - rc * rc) / (2 * d)
+    const h = Math.sqrt(Math.max(rk * rk - aa * aa, 0))
+    const foot = offset(o.me.lat, o.me.lng, aa, th)
+    cand.push(offset(foot.lat, foot.lng, h, th + Math.PI / 2), offset(foot.lat, foot.lng, h, th - Math.PI / 2))
+    for (const s of [Math.PI / 2, -Math.PI / 2]) {
+      const topK = offset(o.me.lat, o.me.lng, rk, th + s)
+      const topC = offset(anchor.lat, anchor.lng, rc, th + s)
+      if (inC(topK)) cand.push(topK)
+      if (inK(topC)) cand.push(topC)
+    }
+  }
+  for (let j = 0; j < 96; j++) {
+    const t = (j / 96) * 2 * Math.PI
+    const pK = offset(o.me.lat, o.me.lng, rk, t)
+    const pC = offset(anchor.lat, anchor.lng, rc, t)
+    if (inC(pK)) cand.push(pK)
+    if (inK(pC)) cand.push(pC)
+  }
+  let rLens = 0
+  for (const p of cand) rLens = Math.max(rLens, havKm(cLens.lat, cLens.lng, p.lat, p.lng))
+  rLens *= 1.01
+
+  // Marge auto 0–10 (Q-Dom-2), AMPLIFIÉE si l'intersection est petite (tendu = plus flou)
+  const margin = (0.3 + 0.22 * M) * (1 + 0.8 * Math.exp(-rLens / 1.5))
+  let cDisp = offset(cLens.lat, cLens.lng, margin * fen.cJitterFrac, fen.cJitterTheta)
+  let rDisp = rLens + margin
+
+  // 🎯 BIAIS VERS LA PERSONNE CLUTCHÉE (décision David 15.07 §A.4, codé nuit du 18.07 — volet 2 de la
+  // « paire à intersection maximale ») : quand la lentille est PETITE (zones limites), le cercle des
+  // lieux proposés GLISSE vers la cible — parce que c'est L'ENVOYEUR qui peut accepter de sortir un peu
+  // de SA zone (règle n°9, marge volontaire), jamais l'inverse. Le biais vise l'ANCRE FLOUTÉE (0.8-1.5 km,
+  // immuable par paire) — jamais le point déclaré : même classe d'information que la règle adaptative
+  // ci-dessous, le Graal (intraçabilité) est préservé. Déterministe (zéro RNG ajouté) : rejouable en test.
+  const tight = Math.max(0, Math.min(1, (1.5 - rLens) / 1.5))
+  if (tight > 0) {
+    const thA = bearing(cDisp.lat, cDisp.lng, anchor.lat, anchor.lng)
+    const dA = havKm(cDisp.lat, cDisp.lng, anchor.lat, anchor.lng)
+    cDisp = offset(cDisp.lat, cDisp.lng, Math.min(dA, tight * 0.45 * dA), thA)
+  }
+
+  // 🎯 RÈGLE ADAPTATIVE (David 10.07) : « si je peux aller là où elle est, je peux proposer ».
+  // Si je peux ATTEINDRE le centre (ancre) de la cible, le cercle affiché DOIT l'englober.
+  // reach = mon rayon DÉCLARÉ (pas effRadius, qui ne sert qu'au flou/anti-sonde), ÉLARGI en zone
+  // CREUSE (liquidité). Borné : rayon petit + cible au rayon énorme (petite lentille) → d > reach →
+  // on N'ÉTEND PAS (jamais tirer quelqu'un +50 km à cause du grand rayon de l'autre — cas 3).
+  // L'ancre reste FLOUTÉE (0.8-1.5 km, immuable) → intraçabilité (Graal) préservée. cDisp inchangé.
+  const sparse = Math.max(0, Math.min(1, (10 - uZone) / 10))
+  const reach = (o.rMyKm + (o.flexKm || 0)) * (1 + 0.5 * sparse)
+  if (d <= reach) rDisp = Math.max(rDisp, havKm(cDisp.lat, cDisp.lng, anchor.lat, anchor.lng) + 0.15)
+
+  return {
+    disjoint: false, uZone, rk, rc, d, M, margin, seedHex: fen.seedHex,
+    lens: { c: cLens, r: rLens }, disp: { c: cDisp, r: rDisp }, anchor,
+  }
+}
+
+// Un lieu proposé est-il DANS le cercle affiché ? (le feedback est borné à ce cercle — jamais à la
+// géométrie réelle : on ne peut sonder que ce qui est déjà affiché)
+export function inZone(z: Zone, lat: number, lng: number): boolean {
+  if (z.disjoint || !z.disp) return false
+  return havKm(z.disp.c.lat, z.disp.c.lng, lat, lng) <= z.disp.r
+}

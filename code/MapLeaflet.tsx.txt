@@ -1,0 +1,621 @@
+// ============================================================================
+// 🗺️ MapLeaflet — LA carte de Clutch, EXTRAITE TELLE QUELLE d'app2/page.tsx (05.07.2026,
+// demande David : « exactement la même carte dans App 3 — le cercle, les trucs, le zoom »).
+// App 2 ET App 3 importent CE composant : une seule carte, deux apps. Zéro changement de
+// comportement — seuls C.bordeaux (→ constante locale) et enrichProfile (→ prop `enrich`,
+// App 2 passe la sienne) ont été dé-couplés du monolithe.
+// ============================================================================
+import React, { useEffect, useRef, useState } from 'react'
+import 'leaflet/dist/leaflet.css'   // 🐛 11.07 : bundlé (unpkg absent en natif → marqueurs géants) — le <link> reste en secours
+import type { Profile } from '@/lib/supabase'
+
+export const ME = [46.5196, 6.6323] as [number, number]
+const BORDEAUX = '#532943'
+const GC = { F:'#FF6B9D', M:'#4FC3F7', X:'#B39DDB' } as const
+type GenderKey = keyof typeof GC
+function genderKey(g?: string|null): GenderKey {
+  if (!g) return 'X'
+  if (g==='woman'||g==='F'||g==='f') return 'F'
+  if (g==='man'  ||g==='M'||g==='m') return 'M'
+  return 'X'
+}
+function isNightNow(): boolean {
+  const h = new Date().toLocaleString('fr-CH', { timeZone:'Europe/Zurich', hour:'numeric', hour12:false })
+  const hour = parseInt(h)
+  return hour >= 20 || hour < 7
+}
+
+
+function GenderSvg({gk, size=16, style}:{gk:GenderKey; size?:number; style?:React.CSSProperties}) {
+  const map:Record<GenderKey,string> = { F:'/icons/femme_couleur.svg', M:'/icons/homme_couleur.svg', X:'/icons/non-binaire_couleur.svg' }
+  return <img src={map[gk]} width={size} height={size} alt="" style={{display:'inline-block',verticalAlign:'middle',...style}}/>
+}
+// ── Helpers embarqués (copiés d'app2 tels quels : la carte reste autonome) ──
+function fuzzPosition(lat: number, lng: number, userId: string): [number,number] {
+  let h = 0
+  for (let i = 0; i < userId.length; i++) h = (Math.imul(31, h) + userId.charCodeAt(i)) | 0
+  const seed1 = (h & 0xFFFF) / 0xFFFF
+  const seed2 = ((h >> 16) & 0xFFFF) / 0xFFFF
+  const maxDeg = 50 / 111_000
+  const dLat = (seed1 - 0.5) * 2 * maxDeg
+  const dLng = (seed2 - 0.5) * 2 * maxDeg / Math.cos(lat * Math.PI / 180)
+  return [lat + dLat, lng + dLng]
+}
+function rayonToZoom(km: number): number {
+  if (km <= 1)  return 15
+  if (km <= 2)  return 14
+  if (km <= 4)  return 13
+  if (km <= 7)  return 13
+  if (km <= 12) return 12
+  if (km <= 20) return 11
+  if (km <= 35) return 10
+  if (km <= 60) return 9
+  return 8
+}
+// 🌊 Les lacs romands (bboxes approx) — « jamais dans l'eau » (David 11.07). Léman + Neuchâtel + Morat + Bienne + Joux.
+const LAKES: [number,number,number,number][] = [
+  [46.20, 46.513, 6.15, 6.93],   // Léman (rive nord ~46.51)
+  [46.78, 47.00, 6.63, 7.05],    // Neuchâtel
+  [46.90, 46.97, 7.05, 7.18],    // Morat
+  [47.05, 47.17, 7.10, 7.30],    // Bienne
+  [46.60, 46.68, 6.25, 6.35],    // Joux
+]
+function isInLake(lat: number, lng: number): boolean {
+  return LAKES.some(([la1,la2,lo1,lo2]) => lat > la1 && lat < la2 && lng > lo1 && lng < lo2)
+}
+function makeStars(centerLat:number, centerLng:number, radiusKm:number, genders:GenderKey[]) {
+  return genders.map((gender: GenderKey, i: number) => {
+    const seed = (i * 2654435761) >>> 0
+    const angle = (seed % 1000) / 1000 * 2 * Math.PI
+    const dist = (((seed >> 10) % 700) + 300) / 1000 * radiusKm
+    const dLat = dist * 1000 / 111_000 * Math.cos(angle)
+    const dLng = dist * 1000 / 111_000 / Math.cos(centerLat * Math.PI / 180) * Math.sin(angle)
+    let lat = centerLat + dLat
+    const lng = centerLng + dLng
+    if (isInLake(lat, lng)) lat += 0.008 + (seed % 100) / 10000
+    return { lat, lng, delay:i*0.25, v:i%5, gender }
+  })
+}
+const EVTS: { lat:number; lng:number; e:string }[] = [
+  { lat:46.5210, lng:6.6340, e:'🍷' },
+  { lat:46.5228, lng:6.6360, e:'☕' },
+]
+
+export default function MapLeaflet({ rayon, userPhoto, profiles=[], showPin=false, onReady, onGpsUpdate, onCenterChange, gpsPos, reachKm, initialCenter, recenterOnGps=true, enrich, spotLock, sparks=null, otherSlots=null }:{
+  rayon:number; userPhoto?:string|null; profiles?:Profile[];
+  /** 🟢 MES AUTRES CRÉNEAUX (David 13.07 : « quand j'ajoute un créneau, j'aimerais voir les autres en
+   *  cours ») : cercles pointillés + pastille n°/heures dans la couleur STABLE de chaque créneau —
+   *  régler le nouveau EN VOYANT l'existant. null/[] = couche coupée. */
+  otherSlots?: { lat:number; lng:number; radiusKm:number; color:string; label:string }[] | null;
+  /** ✨ ÉTINCELLES VIVANTES (David 11.07, carte blanche) : les gens potentiellement rencontrables, re-dessinés
+   *  à CHAQUE changement de filtre (genre/âges/modes) — couleur par genre, position = centre DÉJÀ arrondi ~1 km
+   *  (vue floutée) + brouillage déterministe : jamais une vraie position. null = couche coupée. */
+  sparks?: { lat:number; lng:number; g:'F'|'M'|'X'; id:string }[] | null;
+  showPin?:boolean; onReady?:(getCenter:()=>[number,number], recenter:()=>void, setCenter:(lat:number,lng:number)=>void)=>void;
+  onGpsUpdate?:(pos:[number,number])=>void; onCenterChange?:(lat:number,lng:number)=>void;
+  gpsPos?:[number,number]|null; reachKm?:number|null;
+  // 📍 initialCenter = centre d'ouverture (ex: position d'un créneau qu'on MODIFIE). recenterOnGps=false →
+  //    on NE recentre PAS sur le GPS au 1er fix (sinon le pin restauré saute sur ma position — bug David).
+  initialCenter?:[number,number]|null; recenterOnGps?:boolean;
+  // 📌 spotLock (David 06.07) : lieu choisi par RECHERCHE → épingle PLANTÉE sur ce point (vrai marker),
+  //    cercles dessus, carte centrée dessus, et le PAN ne déplace PLUS le lieu (fini « je bouge la carte
+  //    et ça annule ce que j'ai tapé »). null = mode classique (pin au centre, déplacer la carte = placer).
+  spotLock?:[number,number]|null;
+  /** enrichissement d'affichage des profils bots (App 2 passe son enrichProfile) — identité par défaut */
+  enrich?:(p:any)=>any;
+}) {
+  const divRef    = useRef<HTMLDivElement>(null)
+  const mapRef    = useRef<any>(null)
+  const LRef      = useRef<any>(null)          // ✨ Leaflet gardé pour les couches réactives (étincelles)
+  const sparkLayerRef = useRef<any>(null)
+  const [mapLive, setMapLive] = useState(false)
+  const [mapMoving,setMapMoving] = useState(false) // 🫥 David : l'épingle centrale disparaît PENDANT qu'on bouge/zoome (trompeuse en mouvement)
+  const circleRef  = useRef<any>(null)
+  const haloRef    = useRef<any>(null)
+  const fillRef    = useRef<any>(null)
+  const gpsRef     = useRef<[number,number]>(ME) // Position GPS réelle (màj par geolocation)
+  const userMovedRef = useRef(false) // 🐛 fix David 06.07 : lieu choisi (recherche) ou carte déplacée à la main
+                                     //    → le fix GPS TARDIF n'a plus le droit de recentrer (il « volait » le lieu)
+  const spotLockRef  = useRef<[number,number]|null>(null) // 📌 miroir de spotLock lisible dans les closures d'init
+  const spotMarkerRef = useRef<any>(null)                 // 📌 le marker « lieu fixé » (goutte plantée)
+  const lRef       = useRef<any>(null)           // instance Leaflet (pour dessiner après l'init)
+  const reachRef   = useRef<any>(null)           // 🛰️ cercle « zone atteignable depuis ma position pour cette heure »
+  const night = isNightNow()
+  const [starTooltip, setStarTooltip] = useState<{profile:Profile;x:number;y:number}|null>(null)
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null)
+
+  // ✨ ÉTINCELLES VIVANTES (David 11.07) : une couche à part, re-dessinée à CHAQUE changement de sparks
+  //    (donc à chaque réglage de la phrase). Jamais dans le lac, jamais une vraie position (centres ~1 km + fuzz).
+  useEffect(() => {
+    const map = mapRef.current, L = LRef.current
+    if (!mapLive || !map || !L) return
+    if (!sparkLayerRef.current) sparkLayerRef.current = L.layerGroup().addTo(map)
+    const lay = sparkLayerRef.current
+    try { lay.clearLayers() } catch {}
+    if (!sparks || !sparks.length) return
+    sparks.slice(0, 140).forEach(sp => {   // ⚡ perf : plafond bas (David 15.07 : « les étoiles font ramer les tél de Mel/Dom »)
+      let [la, lo] = fuzzPosition(sp.lat, sp.lng, sp.id)
+      // « jamais dans l'eau » : si le point tombe dans un lac, on le pose sur sa RIVE NORD (sortie garantie)
+      const lk = LAKES.find(([la1,la2,lo1,lo2]) => la > la1 && la < la2 && lo > lo1 && lo < lo2)
+      if (lk) la = lk[1] + 0.004 + ((sp.id.charCodeAt(0) || 7) % 50) / 10000
+      const seed = (sp.id.charCodeAt(2) || 3) + (sp.id.charCodeAt(5) || 1)
+      L.marker([la, lo], { interactive: false, icon: L.divIcon({
+        html: `<div class="cs cs${seed % 5}" style="--gc:${GC[sp.g] || GC.X};animation-delay:${(seed % 16) / 8}s;width:11px;height:11px"></div>`,
+        className: '', iconSize: [11, 11], iconAnchor: [5.5, 5.5] }) }).addTo(lay)
+    })
+  }, [mapLive, sparks])
+
+  // 🟢 MES AUTRES CRÉNEAUX — couche réactive (même mécanique que les étincelles)
+  const otherSlotsLayerRef = useRef<any>(null)
+  useEffect(() => {
+    const map = mapRef.current, L = LRef.current
+    if (!mapLive || !map || !L) return
+    if (!otherSlotsLayerRef.current) otherSlotsLayerRef.current = L.layerGroup().addTo(map)
+    const lay = otherSlotsLayerRef.current
+    try { lay.clearLayers() } catch {}
+    if (!otherSlots || !otherSlots.length) return
+    otherSlots.forEach(s => {
+      if (s.lat==null || s.lng==null) return
+      L.circle([s.lat, s.lng], { radius: (s.radiusKm||3)*1000, color: s.color, weight: 1.6,
+        dashArray: '6 5', fillColor: s.color, fillOpacity: 0.06, interactive: false }).addTo(lay)
+      L.marker([s.lat, s.lng], { interactive: false, icon: L.divIcon({
+        html: `<div style="background:${s.color};color:#fff;font-size:10px;font-weight:800;font-family:inherit;border-radius:10px;padding:2px 8px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25);transform:translate(-50%,0)">${s.label}</div>`,
+        className: '', iconSize: [0, 0], iconAnchor: [0, 8] }) }).addTo(lay)
+    })
+  }, [mapLive, otherSlots])
+
+  useEffect(() => {
+    if (mapRef.current || !divRef.current) return
+    let mounted = true
+
+    if (!document.getElementById('leaflet-css')) {
+      const lk = document.createElement('link')
+      lk.id='leaflet-css'; lk.rel='stylesheet'
+      lk.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(lk)
+    }
+
+    const init = () => {
+      import('leaflet').then(mod => {
+        if (!mounted || !divRef.current) return
+        const L = mod.default
+        LRef.current = L
+        lRef.current = L
+        delete (L.Icon.Default.prototype as any)._getIconUrl
+        L.Icon.Default.mergeOptions({ iconUrl:'', shadowUrl:'' })
+
+        const map = L.map(divRef.current!, {
+          center: initialCenter || ME, zoom:13,
+          zoomControl:false, attributionControl:false,
+          dragging:true, scrollWheelZoom:false, doubleClickZoom:false,
+          // @ts-expect-error tap exists at runtime
+          tap:false,
+        })
+        mapRef.current = map
+        setMapLive(true)
+
+        // 🗺️ Base de tuiles épurée → on la teinte ensuite dans la palette Clutch via filtre CSS (.leaflet-tile-pane).
+        //   Jour = Positron (light_all) : carte claire minimale, parfaite à teinter rosé/prune sans devenir boueuse.
+        //   Nuit = Dark Matter (dark_all) : fond sombre → poussé vers le prune. Réversible (git) : essai design David 29.06.
+        const tileUrl = night
+          ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+          : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        L.tileLayer(tileUrl, { maxZoom:19 }).addTo(map)
+
+        // Cercle RDV — 3 couches : glow fill + border animé + halo pulsant
+        const rm = rayon * 1000
+        // Couche 1 : fill doux saumon
+        const fill = L.circle(ME, {
+          radius:rm, fillColor:'#EB6BAF', fillOpacity:0.09,
+          color:'transparent', opacity:0, weight:0, interactive:false, className:'clutch-fill',
+        }).addTo(map)
+        fillRef.current = fill
+        // Couche 2 : halo rose Mel — visible mais doux (David : « on ne voit pas le rayon » → on remonte un peu)
+        const halo = L.circle(ME, {
+          radius:rm, fillColor:'transparent', fillOpacity:0,
+          color:'#EB6BAF', opacity:0.20, weight:11,
+          interactive:false, className:'clutch-halo',
+        }).addTo(map)
+        haloRef.current = halo
+        // Couche 3 : bordure principale pointillée animée (rose Mel) — bien visible
+        const circle = L.circle(ME, {
+          radius:rm, fillColor:'transparent', fillOpacity:0,
+          color:'#EB6BAF', opacity:1,
+          weight:2.5, dashArray:'10,7',
+          interactive:false, className:'clutch-radius',
+        }).addTo(map)
+        circleRef.current = circle
+        // Sync cercles sur le centre de la carte
+        // ⚠️ iOS: 'move' ne fire pas toujours — on écoute aussi 'moveend' et 'zoomend'
+        // ⚠️ Pinch-zoom ne doit PAS déplacer le curseur — on sauvegarde le centre avant zoom
+        let lockedCenter: {lat:number,lng:number}|null = null
+        const syncCircle = () => {
+          const sl = spotLockRef.current   // 📌 lieu fixé → les cercles restent SUR le lieu, pan libre
+          const c2 = sl ? {lat:sl[0], lng:sl[1]} : (lockedCenter || map.getCenter())
+          const pos: [number,number] = [c2.lat, c2.lng]
+          circle.setLatLng(pos)
+          halo.setLatLng(pos)
+          fill.setLatLng(pos)
+        }
+        // Verrouiller le centre pendant le zoom (pinch ne déplace pas le curseur)
+        const emitCenter = () => { const sl = spotLockRef.current; const c2 = sl ? {lat:sl[0],lng:sl[1]} : (lockedCenter || map.getCenter()); onCenterChange?.(c2.lat, c2.lng) }  // 🛰️ centre LIVE → forteresse pin↔GPS · lieu fixé = le pan n'émet PLUS le centre
+        // 🫥 David 02.07 : masquer l'épingle/les markers PENDANT le zoom (ça saute), les réafficher à l'arrêt.
+        //    (Le pan/déplacement n'est PAS concerné — seulement le zoom.)
+        const markerPane = () => map.getPane('markerPane')
+        map.on('zoomstart', () => { setMapMoving(true); lockedCenter = map.getCenter(); const p=markerPane(); if(p){ p.style.transition='opacity .12s'; p.style.opacity='0' } })
+        map.on('zoomend',   () => {
+          if (lockedCenter) map.panTo(lockedCenter, {animate:false})
+          lockedCenter = null
+          syncCircle(); emitCenter()
+          const p=markerPane(); if(p) p.style.opacity='1'
+          setMapMoving(false)
+        })
+        map.on('movestart', () => setMapMoving(true))   // 🫥 pan/drag aussi → l'épingle centrale se cache tant qu'on bouge
+        map.on('move', syncCircle)
+        map.on('moveend', () => { syncCircle(); emitCenter(); setMapMoving(false) })
+
+        // Long-press sur la carte → déplace le point de rencontre
+        // user-select:none pour éviter la sélection de texte pendant l'appui long
+        if (divRef.current) {
+          (divRef.current as HTMLElement).style.userSelect = 'none';
+          (divRef.current as HTMLElement).style.webkitUserSelect = 'none';
+        }
+        // Appui long → épingle le lieu de RDV ici. FIX (David 28.06) : on n'annulait PLUS au moindre
+        // micro-mouvement (un doigt tremble toujours → ça ne se déclenchait jamais). On annule seulement
+        // si le doigt bouge VRAIMENT (> 14px = drag de carte), sinon le press tient.
+        let lpTimer: ReturnType<typeof setTimeout>|null = null
+        let lpStart: {x:number;y:number}|null = null
+        const lpPt = (oe:any) => oe?.touches?.[0] || oe?.changedTouches?.[0] || oe
+        map.on('mousedown touchstart', (e:any) => {
+          const oe = e.originalEvent
+          const p = lpPt(oe)
+          lpStart = p ? { x:p.clientX, y:p.clientY } : null
+          const latlng = e.latlng || (oe?.touches?.[0] ? map.mouseEventToLatLng(oe.touches[0]) : null)
+          if (!latlng) return
+          if (lpTimer) clearTimeout(lpTimer)
+          lpTimer = setTimeout(() => {
+            // David : « l'épingle doit RESTER à sa place ». On ne recentre PLUS la carte (ça la faisait sauter).
+            // Le lieu se place en DÉPLAÇANT la carte (l'épingle reste au centre) ; l'appui long = confirmation (vibration).
+            try{ if((navigator as any).vibrate) (navigator as any).vibrate(22) }catch{}
+            try{ window.dispatchEvent(new Event('clutch:pin-confirm')) }catch{}
+            lpTimer = null
+          }, 500)
+        })
+        map.on('mousemove touchmove', (e:any) => {
+          if (!lpTimer || !lpStart) return
+          const p = lpPt(e.originalEvent); if (!p) return
+          if (Math.abs(p.clientX - lpStart.x) + Math.abs(p.clientY - lpStart.y) > 14) { clearTimeout(lpTimer); lpTimer = null }
+        })
+        map.on('mouseup touchend', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null } })
+
+        // (géolocalisation gérée dans le bloc selfMarker ci-dessus)
+
+        // Zoom initial — David 15.07 : « au démarrage on ne voit pas le cercle, c'est trop zoomé ».
+        //   AVANT : zoom fixe (13 à 3 km) → le cercle débordait de l'écran. MAINTENANT : on cadre sur le
+        //   CERCLE du rayon avec une marge, EXACTEMENT comme le re-cadrage du curseur (getBoundsZoom −1,
+        //   plafond « ville entière » 12) → on voit tout le cercle + la ville autour, propre.
+        try {
+          const b0 = L.circle(initialCenter || ME, { radius: Math.max(rayon, 0.5) * 1000 }).getBounds()
+          const z0 = Math.min(12, map.getBoundsZoom(b0, false, L.point(48, 48)) - 1)
+          map.setView(initialCenter || ME, z0, { animate:false })
+        } catch { map.setZoom(rayonToZoom(rayon), { animate:false }) }
+
+        // Étoiles colorées par genre — positions aléatoires (anti-triangulation)
+        // Si un profil bot a des coords configurées dans le QG (localStorage), on les utilise
+        // avec un fuzz de ±50m pour respecter la règle LPD
+        const botCfg: Record<string, {lat:number;lng:number}> = {}
+        try {
+          const raw = localStorage.getItem('clutch_bots_config')
+          if (raw) {
+            const cfgs = JSON.parse(raw) as Array<{id:string;lat?:number;lng?:number}>
+            cfgs.forEach(c => { if (c.lat && c.lng) botCfg[c.id] = {lat:c.lat, lng:c.lng} })
+          }
+        } catch {}
+
+        const rawGenders = [
+          ...profiles.map(p => genderKey((p as any).gender)),
+          'X' as GenderKey,
+        ].slice(0, 10) as GenderKey[]
+        const genders = rawGenders
+        const stars = makeStars(ME[0], ME[1], rayon, genders)
+        stars.forEach((s, si) => {
+          // Si le profil correspondant a des coords bot configurées, les utiliser (avec fuzz)
+          const prof = profiles[si]
+          let starLat = s.lat, starLng = s.lng
+          if (prof) {
+            // Bot GPS hardcodé avec position fixe (_fixedLat/_fixedLng)
+            if ((prof as any)._fixedLat && (prof as any)._fixedLng) {
+              const [fLat, fLng] = fuzzPosition((prof as any)._fixedLat, (prof as any)._fixedLng, prof.id)
+              starLat = fLat; starLng = fLng
+            } else {
+              const profIdShort = (prof.id||'').slice(0,8)
+              const cfg = botCfg[profIdShort] || botCfg[prof.id]
+              if (cfg) {
+                const [fLat, fLng] = fuzzPosition(cfg.lat, cfg.lng, prof.id)
+                starLat = fLat; starLng = fLng
+              }
+            }
+          }
+          const color = GC[s.gender]
+          // Étoiles cliquables si profil bot — taille plus grande + pointer-events actifs
+          const clickable = !!prof
+          const marker = L.marker([starLat, starLng], { icon: L.divIcon({
+            html:`<div class="cs cs${s.v}" style="--gc:${color};animation-delay:${s.delay}s;width:${clickable?16:10}px;height:${clickable?16:10}px;cursor:${clickable?'pointer':'default'}"></div>`,
+            className:'', iconSize:[clickable?16:10,clickable?16:10], iconAnchor:[clickable?8:5,clickable?8:5],
+          })}).addTo(map)
+          if (prof && clickable) {
+            marker.on('click', (e:any) => {
+              const pt = e.containerPoint
+              setStarTooltip({ profile: prof, x: pt.x, y: pt.y })
+              if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current)
+              tooltipTimerRef.current = setTimeout(() => setStarTooltip(null), 3500)
+            })
+          }
+        })
+
+        // Événements
+        EVTS.forEach(e => L.marker([e.lat,e.lng], { icon: L.divIcon({
+          html:`<div class="cevt">${e.e}</div>`,
+          className:'', iconSize:[28,28], iconAnchor:[14,14],
+        })}).addTo(map))
+
+        // Ma position — SUPERNOVA
+        const photo = userPhoto
+          ? `<img src="${userPhoto}" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;object-fit:cover;border:2px solid #77BC1F;z-index:2;"/>`
+          : `<div class="sn-core"></div>`
+        const selfMarker = L.marker(ME, { icon: L.divIcon({
+          html:`<div class="sn-wrap"><div class="sn-r sn-r1"></div><div class="sn-r sn-r2"></div><div class="sn-r sn-r3"></div>${photo}</div>`,
+          className:'', iconSize:[60,60], iconAnchor:[30,30],
+        }), zIndexOffset:1000 }).addTo(map)
+
+        // Géolocalisation → déplacer le marker photo à la vraie position
+        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              if (!mounted) return
+              const loc: [number,number] = [pos.coords.latitude, pos.coords.longitude]
+              gpsRef.current = loc
+              selfMarker.setLatLng(loc)
+              if (recenterOnGps && !userMovedRef.current) map.panTo(loc, { animate:true })   // pas de recentrage en mode édition NI si l'user a déjà choisi/déplacé
+              onGpsUpdate?.(loc)
+            },
+            () => {},
+            { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+          )
+        }
+
+        // Expose getCenter + recenter + setCenter (recherche de lieu) → utilise la position GPS réelle (gpsRef)
+        map.on('dragstart', () => { userMovedRef.current = true })   // pan manuel = même protection
+        if (onReady) onReady(
+          () => { const c = map.getCenter(); return [c.lat, c.lng] as [number,number] },
+          () => { userMovedRef.current = false; map.panTo(gpsRef.current, {animate:true}); setTimeout(syncCircle, 400) },
+          // Recherche de lieu (ex: Sion) → contexte ~10 km (zoom 12). 🐛 David 11.07 (« Montreux : la carte reste
+          // figée sur moi ») : si le lieu est LOIN de ma position, on cadre pour voir LES DEUX (moi + le lieu).
+          (lat:number, lng:number) => {
+            userMovedRef.current = true
+            const g = gpsRef.current
+            const farKm = g ? 111 * Math.hypot(lat - g[0], (lng - g[1]) * Math.cos(lat * Math.PI / 180)) : 0
+            if (g && farKm > 12) { try { map.fitBounds(L.latLngBounds([g, [lat, lng]]).pad(0.28), { animate: true }) } catch { map.setView([lat, lng], 12, { animate: true }) } }
+            else map.setView([lat, lng], 12, { animate: true })
+            setTimeout(syncCircle, 400)
+          }
+        )
+
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (mounted) {
+            map.invalidateSize({ pan:false })
+            setTimeout(() => { if (mounted) map.invalidateSize({ pan:false }) }, 200)
+          }
+        }))
+      })
+    }
+
+    const ex = document.getElementById('leaflet-css') as HTMLLinkElement
+    ex?.sheet ? init() : setTimeout(init, 60)
+
+    return () => { mounted=false; mapRef.current?.remove(); mapRef.current=null; circleRef.current=null; haloRef.current=null; fillRef.current=null }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Rayon dynamique — zoom calculé via getBoundsZoom (toujours exact)
+  useEffect(() => {
+    const map = mapRef.current
+    const circle = circleRef.current
+    if (!map || !circle) return
+    const rm = rayon * 1000
+    const sl = spotLockRef.current
+    const center: any = sl ? sl : map.getCenter()   // 📌 lieu fixé → le rayon s'ajuste AUTOUR DU LIEU
+    // Mettre à jour rayon sur les 3 couches
+    circle.setLatLng(center); circle.setRadius(rm)
+    if (haloRef.current) { haloRef.current.setLatLng(center); haloRef.current.setRadius(rm) }
+    if (fillRef.current) { fillRef.current.setLatLng(center); fillRef.current.setRadius(rm) }
+    // Zoom : Leaflet ajuste pour que le cercle rentre… MAIS on PLAFONNE à ~5 km de contexte (David 30.06 :
+    //   « un rayon de 1 km ne doit pas ultra-zoomer ; je veux voir une petite ville, ~5 km autour »).
+    //   → on dézoome pour les grands rayons, mais jamais plus serré que le niveau « petite ville » (zoom 13).
+    //   Re-calibré 11.07 (David : « beaucoup trop zoomé sur le cercle — il faut vraiment dézoomer ») :
+    //   -1 niveau sous le cadrage exact → le cercle ≈ la moitié de l'écran, on VOIT la ville autour
+    //   (et bientôt la densité) pour ajuster sa fenêtre. Plafond 12 = échelle « ville entière ».
+    const CONTEXT_MAX_ZOOM = 12
+    try {
+      const bounds = circle.getBounds()
+      const idealZoom = Math.min(CONTEXT_MAX_ZOOM, map.getBoundsZoom(bounds, false, [48, 48]) - 1)
+      map.setZoom(idealZoom, { animate:true })
+    } catch { map.setZoom(Math.min(CONTEXT_MAX_ZOOM, rayonToZoom(rayon) - 1), { animate:true }) }
+    // Re-sync après animation (iOS)
+    setTimeout(() => {
+      if (!mapRef.current || !circleRef.current) return
+      const sl2 = spotLockRef.current
+      const c: any = sl2 ? sl2 : mapRef.current.getCenter()
+      circleRef.current.setLatLng(c)
+      haloRef.current?.setLatLng(c)
+      fillRef.current?.setLatLng(c)
+    }, 500)
+  }, [rayon])
+
+  // 🛰️ ZONE ATTEIGNABLE depuis MA position pour l'heure choisie (David 28.06) — cercle pointillé prune autour
+  //    du GPS : « tu peux poser ton lieu DANS cette zone pour ce départ ». Se resserre quand l'heure approche.
+  //    Décoratif/pédago (le blocage réel = banner + Suivant). Caché si pas de GPS, pas limitant, ou zone géante.
+  useEffect(() => {
+    const map = mapRef.current, L = lRef.current
+    if (!map || !L) return
+    const show = gpsPos && reachKm!=null && isFinite(reachKm) && reachKm > 0.2 && reachKm < 49
+    if (!show) { if (reachRef.current){ try{reachRef.current.remove()}catch{}; reachRef.current=null } return }
+    const m = (reachKm as number) * 1000
+    if (!reachRef.current) {
+      reachRef.current = L.circle(gpsPos as [number,number], { radius:m, color:'#532943', weight:1.5, dashArray:'5,7', opacity:0.55, fillColor:'#532943', fillOpacity:0.05, interactive:false, className:'clutch-reach' }).addTo(map)
+    } else {
+      reachRef.current.setLatLng(gpsPos as [number,number]); reachRef.current.setRadius(m)
+    }
+  }, [gpsPos, reachKm])
+
+  // 📌 SPOT LOCK (David 06.07) : lieu choisi par recherche → marker planté + carte centrée + cercles dessus.
+  //    Le centrage vit ICI (prop-driven sur la vraie instance) — plus le chemin refs qui pouvait rater.
+  useEffect(() => {
+    const map = mapRef.current, L = lRef.current
+    spotLockRef.current = spotLock ?? null
+    if (!map || !L) return
+    if (spotLock) {
+      const html = `<svg width="30" height="40" viewBox="0 0 30 40" fill="none" style="filter:drop-shadow(0 3px 5px rgba(83,41,67,.45))"><path d="M15 39C15 39 27 24.5 27 14C27 6.8 21.6 1 15 1C8.4 1 3 6.8 3 14C3 24.5 15 39 15 39Z" fill="${BORDEAUX}" stroke="#fff" stroke-width="1.5"/><circle cx="15" cy="14" r="5" fill="#fff"/></svg>`
+      if (!spotMarkerRef.current) {
+        spotMarkerRef.current = L.marker(spotLock, { icon: L.divIcon({ html, className:'', iconSize:[30,40], iconAnchor:[15,40] }), interactive:false, zIndexOffset:1200 }).addTo(map)
+      } else spotMarkerRef.current.setLatLng(spotLock)
+      userMovedRef.current = true                                   // le GPS tardif n'a rien à dire
+      // 🐛 David 07.07 « Morges ne s'est pas calé » : setView animé pouvait être AVALÉ par une animation en
+      //    cours (pan/zoom Leaflet). → stop() + SANS animation + re-assert à 400 ms (déterministe).
+      try { map.stop() } catch {}
+      map.setView(spotLock, Math.max(map.getZoom(), 12), { animate:false })
+      setTimeout(() => { try { if (spotLockRef.current && mapRef.current) { mapRef.current.invalidateSize({pan:false}); mapRef.current.setView(spotLockRef.current, Math.max(mapRef.current.getZoom(), 12), {animate:false}) } } catch {} }, 400)
+      circleRef.current?.setLatLng(spotLock); haloRef.current?.setLatLng(spotLock); fillRef.current?.setLatLng(spotLock)
+      onCenterChange?.(spotLock[0], spotLock[1])
+    } else {
+      if (spotMarkerRef.current) { try{ spotMarkerRef.current.remove() }catch{}; spotMarkerRef.current = null }
+      const c = map.getCenter()
+      circleRef.current?.setLatLng(c); haloRef.current?.setLatLng(c); fillRef.current?.setLatLng(c)
+      onCenterChange?.(c.lat, c.lng)
+    }
+  }, [spotLock?.[0], spotLock?.[1]]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Map size dynamique — déclenché par un ResizeObserver sur le container
+  useEffect(() => {
+    if (!divRef.current) return
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(() => mapRef.current?.invalidateSize({ pan:false }))
+    })
+    ro.observe(divRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div style={{ position:'relative', width:'100%', height:'100%', overflow:'hidden' }}>
+      {/* Épingle centrale — goutte SVG propre (palette Mel). Cachée pendant qu'on bouge/zoome (David : trompeuse en mouvement).
+          ⏳ À remplacer par Pin_RDVfixe.svg de Mel quand elle aura recadré son viewBox (actuellement A4, inutilisable tel quel). */}
+      {showPin && !mapMoving && !spotLock && (
+        <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-100%)',
+          zIndex:800,pointerEvents:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+          <svg width="30" height="40" viewBox="0 0 30 40" fill="none" style={{filter:'drop-shadow(0 3px 5px rgba(83,41,67,.45))'}}>
+            <path d="M15 39C15 39 27 24.5 27 14C27 6.8 21.6 1 15 1C8.4 1 3 6.8 3 14C3 24.5 15 39 15 39Z" fill={BORDEAUX} stroke="#fff" strokeWidth="1.5"/>
+            <circle cx="15" cy="14" r="5" fill="#fff"/>
+          </svg>
+          {/* label « Déplace la carte » retiré (challenge UX 04.07 : DOUBLON avec le hint bas-gauche de l'écran — les 3 IA l'ont relevé) */}
+        </div>
+      )}
+      {/* hint inside map removed — see carte overlay */}
+      <style>{`
+        .leaflet-container{background:${night?'#2a1020':'#efe6e2'}!important;}
+        /* 🎨 Teinte Clutch (essai design David 29.06, réversible) :
+           Jour : Positron clair → sepia ajoute de la chaleur, hue-rotate la pousse vers le rosé/prune → carte douce & propre.
+           Nuit : Dark Matter → poussé vers le prune profond (bgBase), un peu éclairci pour rester lisible. */
+        .leaflet-tile-pane{filter:${night
+          ? 'brightness(1.35) contrast(0.9) saturate(0.75) hue-rotate(-18deg) sepia(0.12)'
+          : 'saturate(0.92) sepia(0.20) hue-rotate(-12deg) brightness(1.03) contrast(0.96)'};}
+        /* Cercle rayon — ROSE Mel, bien visible (le CSS !important écrasait tout → rayon invisible, bug David) */
+        .clutch-radius path{stroke:#EB6BAF!important;fill:transparent!important;stroke-width:2.5px!important;stroke-opacity:1!important;stroke-dasharray:10 7!important;transition:d .35s cubic-bezier(.22,1,.36,1);}
+        .clutch-halo path{stroke:#EB6BAF!important;stroke-width:11px!important;stroke-opacity:.18!important;fill:transparent!important;display:block!important;}
+        .clutch-fill path{fill:#EB6BAF!important;fill-opacity:.09!important;stroke:none!important;display:block!important;}
+        .clutch-fill path{transition:d .35s cubic-bezier(.22,1,.36,1)!important;}
+        /* étoiles 4 branches — vrai style étoile cristalline */
+        /* ⚡ ÉTOILES SANS CPU (David 15.07 : « ça fait ramer les tél de Mel/Dom, la carte a de la peine »).
+           AVANT : 2× drop-shadow (flou re-calculé chaque frame) + animation scale/rotate (re-rasterise la
+           forme du clip-path 60×/s) × 500 = massacre GPU. APRÈS : UN drop-shadow léger rastérisé UNE fois,
+           chaque étoile promue sur sa propre couche GPU (translateZ), et on n'anime QUE l'opacité — qui est
+           une propriété COMPOSITEUR (aucun re-raster, aucun CPU). La forme et le halo ne bougent plus,
+           seule la luminosité pulse. C'est « plus léger » comme demandé, et ça vit encore. */
+        .cs{
+          width:${night?10:8}px;height:${night?10:8}px;
+          background:var(--gc,#EB6BAF);
+          clip-path:polygon(50% 0%,56% 44%,100% 50%,56% 56%,50% 100%,44% 56%,0% 50%,44% 44%);
+          filter:drop-shadow(0 0 2px var(--gc,#EB6BAF));
+          opacity:${night?1:.9};
+          will-change:opacity;transform:translateZ(0);}
+        .cs0{animation:s0 2.7s ease-in-out infinite;}
+        .cs1{animation:s1 3.3s ease-in-out infinite;}
+        .cs2{animation:s2 2.1s ease-in-out infinite;}
+        .cs3{animation:s3 3.8s ease-in-out infinite;}
+        .cs4{animation:s4 2.4s ease-in-out infinite;}
+        @keyframes s0{0%,100%{opacity:.25}40%{opacity:1}80%{opacity:.5}}
+        @keyframes s1{0%,100%{opacity:.9}55%{opacity:.2}}
+        @keyframes s2{0%,100%{opacity:.4}30%{opacity:1}}
+        @keyframes s3{0%,100%{opacity:1}45%{opacity:.1}}
+        @keyframes s4{0%,100%{opacity:.6}25%{opacity:1}}
+        /* batterie + accessibilité : mouvement réduit → étoiles fixes */
+        @media (prefers-reduced-motion:reduce){.cs0,.cs1,.cs2,.cs3,.cs4{animation:none;opacity:.7}}
+        /* événements */
+        .cevt{width:28px;height:28px;border-radius:8px;background:rgba(26,14,20,.85);
+          border:1px solid rgba(83,41,67,.35);display:flex;align-items:center;
+          justify-content:center;font-size:14px;backdrop-filter:blur(4px);}
+        /* supernova */
+        .sn-wrap{position:relative;width:60px;height:60px;}
+        .sn-r{position:absolute;top:50%;left:50%;border-radius:50%;
+          border:1.5px solid rgba(119,188,31,.85);
+          transform:translate(-50%,-50%) scale(0);
+          box-shadow:0 0 6px 2px rgba(119,188,31,.3);}
+        .sn-r1{width:18px;height:18px;animation:snX 2.5s ease-out infinite 0s;}
+        .sn-r2{width:18px;height:18px;animation:snX 2.5s ease-out infinite .83s;}
+        .sn-r3{width:18px;height:18px;animation:snX 2.5s ease-out infinite 1.67s;}
+        @keyframes snX{0%{transform:translate(-50%,-50%) scale(.15);opacity:1;}80%{opacity:.3;}100%{transform:translate(-50%,-50%) scale(3);opacity:0;}}
+        .sn-core{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+          width:16px;height:16px;border-radius:50%;z-index:2;
+          background:radial-gradient(circle at 35% 35%,#fff 0%,#77BC1F 55%,#B6E27A 100%);
+          box-shadow:0 0 14px 5px rgba(119,188,31,.8),0 0 28px 10px rgba(119,188,31,.3);
+          animation:snC 1.8s ease-in-out infinite;}
+        @keyframes snC{0%,100%{box-shadow:0 0 14px 5px rgba(119,188,31,.8),0 0 28px 10px rgba(119,188,31,.3);}
+          50%{box-shadow:0 0 20px 8px rgba(182,226,122,1),0 0 40px 14px rgba(119,188,31,.5);}}
+      `}</style>
+      <div ref={divRef} style={{ position:'absolute',inset:0, touchAction:'none' }}/>
+      {/* Tooltip étoile — mini preview profil */}
+      {starTooltip && (()=>{
+        const p = (enrich || ((x:any)=>x))(starTooltip.profile)
+        const gk = genderKey((p as any).gender)
+        const color = GC[gk]
+        // Position: décaler si trop à droite
+        const x = Math.min(starTooltip.x, (divRef.current?.clientWidth||300) - 180)
+        const y = Math.max(starTooltip.y - 80, 10)
+        return (
+          <div onClick={()=>setStarTooltip(null)} style={{
+            position:'absolute', left:x, top:y, zIndex:900,
+            background:'rgba(61,26,51,.96)', backdropFilter:'blur(12px)',
+            border:`1.5px solid ${color}55`, borderRadius:14,
+            padding:'8px 12px', display:'flex', alignItems:'center', gap:10,
+            pointerEvents:'auto', cursor:'pointer', minWidth:160, maxWidth:200,
+            boxShadow:`0 4px 20px rgba(0,0,0,.5)`,
+            animation:'tooltipIn .2s cubic-bezier(.22,1,.36,1)',
+          }}>
+            <style>{`@keyframes tooltipIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}`}</style>
+            {p.photo_url
+              ? <img src={p.photo_url} alt="" style={{width:38,height:38,borderRadius:10,objectFit:'cover',objectPosition:'50% 30%',border:`2px solid ${color}66`,flexShrink:0}}/>
+              : <div style={{width:38,height:38,borderRadius:10,background:`${color}22`,border:`2px solid ${color}55`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><GenderSvg gk={gk} size={20}/></div>
+            }
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:900,color:'#FAFAFA',display:'flex',alignItems:'center',gap:5}}>
+                {p.name} <GenderSvg gk={gk} size={13}/>
+              </div>
+              {(p as any).age && <div style={{fontSize:11,color:'rgba(250,250,250,.6)'}}>{(p as any).age} ans</div>}
+              <div style={{fontSize:10,color:'rgba(250,250,250,.5)',marginTop:1}}>
+                📍 ~{(300 + Math.floor(Math.random() * 700))}m
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}

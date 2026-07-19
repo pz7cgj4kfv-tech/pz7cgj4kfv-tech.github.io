@@ -1,0 +1,667 @@
+'use client'
+// 🎟️ CRÉATION D'ÉVÉNEMENT V2 — carte blanche David 03.07 (« la page de création d'événement ne va pas du tout »).
+// Refonte de l'HABILLAGE seulement : la plomberie métier est IDENTIQUE à createGroupEvent d'app2
+// (même insert `events` + `event_participants`, mêmes champs, même fallback local silencieux).
+// Règle « 3 gestes, le reste replié » :
+//   1. CATÉGORIE — les 7 icônes de Mel (public/icons/mel/events), premier geste, obligatoire.
+//   2. TITRE + QUAND + OÙ — avec « 🏠 chez moi » (quartier seul affiché, adresse donnée plus tard aux confirmés).
+//   3. PLACES + PHOTOS — min (« ça a lieu dès N ») / max · 1-3 photos (Storage bucket `avatars`, chemin events/<uid>/…).
+//   ▸ Options (repliées) : fixe/souple · limite d'âge · niveau · description · prix.
+// Compromis DB (AUCUNE migration) : catégorie → tags `cat:<k>` + tag humain (filtre existant) ·
+// fixe/souple → tag `fixe`/`souple` · chez-moi → tag `chezmoi` · niveau → tag `niv:<x>` ·
+// photos → colonne `event_photos` si elle existe (sinon 2e essai d'insert SANS, payload V1 strict).
+// Flag : EVENTS_V2 dans app/app2/page.tsx (OFF = ancienne sheet à l'identique).
+import { useRef, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { EVENT_CATS7, melEventIcon } from '@/lib/events-helpers'
+import JogWheel from '@/lib/JogWheel'
+import { moderatePhoto } from '@/lib/photo-moderation'
+
+// Palette Mel thème blanc (mêmes valeurs que lib/SoireeSimulee.tsx — jamais de couleur inventée)
+const P = { white: '#FFFFFF', plum: '#532943', pink: '#EB6BAF', green: '#77BC1F', border: '#E3E3E3', text: '#4A2A3D', ink: '#6F6F6E' }
+
+const DUR_OPTS = [{ h: 1, label: '1h' }, { h: 2, label: '2h' }, { h: 3, label: '3h' }, { h: 5, label: '4h+' }]
+// 🕐 Défaut malin (David 14.07, 01h44 : « il me propose demain à deux heures — rien ne joue ») : maintenant + 1h,
+//    arrondi au quart d'heure SUPÉRIEUR. Si ça franchit minuit → la date par défaut devient « Demain »
+//    (sinon la cible serait « déjà passée » à la publication).
+const defaultWhen = () => {
+  const now = new Date()
+  const d = new Date(now.getTime() + 60 * 60000)
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0)
+  return { time: d.toTimeString().slice(0, 5), demain: d.getDate() !== now.getDate() }
+}
+// 🎡 LA molette = JogWheel, celle de la mise en ligne et du choix d'âge (David 14.07 build 386 : « les
+//    molettes, ce n'est pas ça — on veut les MÊMES que quand on se met en ligne »). Charte Mel 22.06 :
+//    bandeau gris, valeur active ROSE, fondu haut/bas. Plus JAMAIS de mini-roue maison dans cette page.
+const QUARTERS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`)
+const AGE_SLOTS = Array.from({ length: 84 }, (_, i) => String(16 + i))
+// 👥 Plafonds de places — privé = 10 (décision David+Mel 07.07). Public = 20 par DÉFAUT : décision OUVERTE
+//    (David 14.07 : « compte gratuit peut-être 5, quand tu payes 10, peut-être 20 — il faudra voir ») →
+//    le jour où c'est tranché, ces constantes deviennent une fonction du compte. Min DUR = 2 (un event
+//    « dès 1 personne » n'est pas un événement).
+const EV_CAP_PRIVE = 10
+const EV_CAP_PUBLIC = 20
+
+export default function EventCreateV2({ userId, en, onClose, onCreated, showToast, checkBanned }: {
+  userId?: string | null
+  en: boolean
+  onClose: () => void
+  /** persistedId = id DB si l'insert a réussi, sinon null → le parent garde la version locale (comme V1). */
+  onCreated: (localEv: any, persistedId: string | null) => void
+  showToast?: (m: string, c?: string) => void
+  checkBanned?: (s?: string) => boolean
+}) {
+  // ⚠️ TOUS les hooks en tête, AUCUN return anticipé avant (leçon crash React #310).
+  const [step, setStep] = useState<1 | 2>(1)
+  const [cat, setCat] = useState<string | null>(null)
+  const [title, setTitle] = useState('')
+  const [date, setDate] = useState<'Aujourd\'hui' | 'Demain'>(() => defaultWhen().demain ? 'Demain' : 'Aujourd\'hui') // valeurs FR = contrat colonne event_date (V1)
+  const [time, setTime] = useState(() => defaultWhen().time)
+  const [dur, setDur] = useState(2)
+  const [home, setHome] = useState(false)          // 🏠 chez moi → on ne publie QUE le quartier
+  // 🔓/🔒 PUBLIC ou PRIVÉ (décision David+Mel 07.07) : privé = l'orga VALIDE chaque personne, plafond 10.
+  //    Public = premier arrivé premier servi, zéro validation. « Chez moi » force le privé (jamais de
+  //    premier-arrivé chez quelqu'un). Défaut = privé (le choix sûr).
+  const [priv, setPriv] = useState(true)
+  const [lieu, setLieu] = useState('')             // adresse publique (Nominatim)
+  const [quartier, setQuartier] = useState('')     // quartier seul (mode chez-moi)
+  const [minN, setMinN] = useState(2)              // « ça a lieu dès N »
+  const [maxN, setMaxN] = useState(6)
+  const [hostParty, setHostParty] = useState(1)    // « vous êtes déjà combien ? » — l'orga + ses copains occupent des places (pétanque David : orga à 3 → 1 place sur 4)
+  const [photos, setPhotos] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [optOpen, setOptOpen] = useState(false)    // ▸ Options (replié par défaut)
+  const [fixed, setFixed] = useState(false)        // fixe = « je veux faire ça et rien d'autre » · souple = clutchable
+  const [ageOn, setAgeOn] = useState(false)
+  const [ageMin, setAgeMin] = useState(18)
+  const [ageMax, setAgeMax] = useState(99)
+  const [level, setLevel] = useState<string | null>(null) // null = tous niveaux
+  const [desc, setDesc] = useState('')
+  const [price, setPrice] = useState('')           // vide = Gratuit
+  const [creating, setCreating] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
+  // Recherche d'adresse (Nominatim, même pattern que la V1 / la mise en ligne)
+  const [addrResults, setAddrResults] = useState<any[]>([])
+  const [showSugg, setShowSugg] = useState(false)
+  const [addrLoading, setAddrLoading] = useState(false)
+  const addrTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dragY = useRef(0)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const catDef = EVENT_CATS7.find(c => c.k === cat) || null
+  const lieuFinal = home ? quartier : lieu
+  const dirty = !!(cat || title || lieu || quartier || desc || photos.length)
+  const tryClose = () => { if (dirty && !creating) setConfirmClose(true); else onClose() }
+
+  const fmtAddr = (r: any): string => { const a = r.address || {}; const p = [a.road, a.house_number, a.postcode, a.city || a.town || a.village].filter(Boolean); return p.join(' ') || (r.display_name || '').split(',').slice(0, 2).join(',').trim() }
+  const searchAddr = async (q: string) => {
+    if (q.trim().length < 3) { setAddrResults([]); setAddrLoading(false); return }
+    setAddrLoading(true)
+    try {
+      const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1&viewbox=6.0,47.0,7.2,46.0&bounded=0`, { headers: { 'Accept-Language': en ? 'en' : 'fr' } })
+      setAddrResults(await resp.json() || [])
+    } catch { setAddrResults([]) }
+    setAddrLoading(false)
+  }
+  // 📍 fix David 08.07 (« mon event ne s'affiche pas sur la carte ») : la sélection d'adresse GARDE
+  //    lat/lng (avant : jetées → l'event naissait sans coordonnées → invisible sur la carte des events,
+  //    alors que ceux des bots en avaient). Taper à la main réinitialise (coords périmées).
+  const [lieuLat, setLieuLat] = useState<number | null>(null)
+  const [lieuLng, setLieuLng] = useState<number | null>(null)
+  const onLieuChange = (v: string) => { setLieu(v); setLieuLat(null); setLieuLng(null); setShowSugg(true); if (addrTimer.current) clearTimeout(addrTimer.current); addrTimer.current = setTimeout(() => searchAddr(v), 600) }
+  const pickAddr = (name: string, addr?: string, lat?: number, lng?: number) => { setLieu(addr && addr !== name ? `${name}, ${addr}` : name); if (lat != null && lng != null) { setLieuLat(lat); setLieuLng(lng) } setShowSugg(false); setAddrResults([]) }
+
+  // 📸 Upload photo — même pattern que l'avatar (bucket `avatars`, aucun bucket nouveau à configurer),
+  // chemin séparé events/<userId>/… pour ne rien mélanger avec les photos de profil.
+  const uploadPhoto = async (file: File) => {
+    if (!userId) { showToast?.(en ? 'Sign in to add photos' : 'Connecte-toi pour ajouter des photos', P.pink); return }
+    if (photos.length >= 3 || uploading) return
+    setUploading(true)
+    // 🛡️ Modération IA AVANT tout upload (décision David 14.07 — spec-moderation-ia-14jul.md)
+    const mod = await moderatePhoto(file, 'event_photo')
+    if (!mod.ok) { showToast?.(en ? mod.msgEn : mod.msgFr, P.pink); setUploading(false); return }
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      // 1er dossier = userId (même pattern que l'avatar — les policies storage exigent souvent foldername[1]=auth.uid())
+      const path = `${userId}/event_${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type || undefined })
+      if (error) throw error
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+      setPhotos(p => [...p, publicUrl])
+    } catch { showToast?.(en ? 'Upload error' : 'Erreur d\'upload', P.pink) }
+    setUploading(false)
+  }
+
+  // Gestes valides par étape (validation DOUCE : on dit ce qui manque, on ne bloque jamais sans expliquer)
+  const step2Ok = !!(title.trim() && lieuFinal.trim() && time.trim())
+
+  // ⛔ fix David 08.07 (« gang bang refusé mais AUCUNE notification ») : le toast passait DERRIÈRE le
+  //    modal → l'erreur s'affiche maintenant EN BANNIÈRE DANS le modal, en plus du toast.
+  const [err, setErr] = useState('')
+  const [openEd, setOpenEd] = useState<null | 'when' | 'where' | 'people'>(null)   // 🗣️ trou ouvert de la phrase (maquette Mel 12.07 · 'people' 14.07)
+  const fail = (m: string) => { setErr(m); showToast?.(m, P.pink) }
+  const publish = async () => {
+    if (creating) return
+    setErr('')
+    const miss: string[] = []
+    if (!cat) miss.push(en ? 'a category' : 'la catégorie')
+    if (!title.trim()) miss.push(en ? 'a title' : 'le titre')
+    if (!lieuFinal.trim()) miss.push(home ? (en ? 'the neighbourhood' : 'le quartier') : (en ? 'a place' : 'le lieu'))
+    if (!time.trim()) miss.push(en ? 'a time' : 'l\'heure')
+    if (miss.length) { fail((en ? 'Missing: ' : 'Il manque : ') + miss.join(', ')); return }
+    // Anti-contenu déplacé — même garde que la V1
+    if (checkBanned && (checkBanned(title) || checkBanned(desc) || checkBanned(lieuFinal))) {
+      fail(en ? '⛔ Inappropriate wording — this event can\'t be published as is. Please rephrase.' : '⛔ Texte non autorisé — cet événement ne peut pas être publié tel quel. Reformule sans mots déplacés.'); return
+    }
+    if (ageOn && ageMin > ageMax) { fail(en ? 'Age: min must be ≤ max' : 'Âge : le min doit être ≤ au max'); return }
+    // Pas dans le passé (fenêtre 18h retirée pour les events — même règle que la V1)
+    const [hh, mm] = time.split(':').map(Number)
+    const target = new Date(); if (date === 'Demain') target.setDate(target.getDate() + 1); target.setHours(hh || 0, mm || 0, 0, 0)
+    if (target.getTime() < Date.now() - 60000) { fail(en ? 'That time is already past' : 'Cette heure est déjà passée'); return }
+    setCreating(true)
+    // 📍 coords BEST-EFFORT (fix « invisible sur la carte ») : suggestion choisie, sinon géocodage 1 coup.
+    let evLat = lieuLat, evLng = lieuLng
+    if (evLat == null && lieuFinal.trim().length >= 3) {
+      try {
+        const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 5000)
+        const rr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(lieuFinal)}&format=json&limit=1&viewbox=6.0,47.0,7.2,46.0&bounded=0`, { signal: ctl.signal })
+        clearTimeout(tm)
+        const dd = await rr.json()
+        if (dd?.[0]) { evLat = parseFloat(dd[0].lat); evLng = parseFloat(dd[0].lon) }
+      } catch { /* sans coords : l'event vit en liste, juste pas sur la carte */ }
+    }
+    const c7 = catDef!
+    // Tags = colonne EXISTANTE : contrat V1 (groupe + minN) + catégorie (cat:<k> explicite + tag humain pour le
+    // filtre existant) + fixe/souple + chezmoi + niveau. Zéro migration.
+    const tags = ['groupe', 'min' + minN, 'cat:' + c7.k, c7.tag as string,
+      ...(c7.k === 'entraide' ? ['communauté'] : []),   // entraide = aussi visible sous le filtre Communauté (verdict specs 03.07)
+      ...(hostParty > 1 ? ['party:' + hostParty] : []), // pétanque David : le groupe de l'orga occupe déjà N places (l'affichage X/Y le lit)
+      fixed ? 'fixe' : 'souple',
+      ...(home ? ['chezmoi'] : []),
+      ...(priv ? ['prive'] : []),                       // 🔒 privé (David+Mel 07.07) — badge + validation orga
+      ...(level ? ['niv:' + level] : [])]
+    const descFinal = desc.trim() || (en ? 'Event created on Clutch.' : 'Événement créé sur Clutch.')
+    const priceFinal = price.trim() || (en ? 'Free' : 'Gratuit')
+    let realId: string | null = null
+    try {
+      if (userId) {
+        // 👤 creator = VRAI prénom en base (bug David 04.07 : 'Toi' était STOCKÉ → sur le tél de Dom,
+        //    l'event de David arrivait avec creator='Toi' → Dom se croyait propriétaire et voyait
+        //    « Annuler l'événement ». 'Toi' n'est qu'un AFFICHAGE local, jamais une donnée.)
+        let myName = ''
+        try { const { data: _me } = await supabase.from('public_profiles').select('name').eq('id', userId).maybeSingle(); myName = ((_me as any)?.name || '').split(' ')[0] } catch {}
+        // Payload V1 STRICT (mêmes champs que createGroupEvent) — la base qui marche déjà.
+        const base: any = {
+          title: title.trim(), emoji: c7.emoji, lieu: lieuFinal.trim(),
+          event_time: time.trim(), event_date: date, spots: maxN,
+          starts_at: target.toISOString(),
+          description: descFinal,
+          ...(ageOn ? { age_min: ageMin, age_max: ageMax } : {}),
+          tags, ev_gender: 'X', type: 'user', status: 'pending',
+          // 🔓/🔒 mode = le contrat que doRegister lit déjà : 'open' = auto-accepté (1er arrivé) ·
+          // 'curated' = demande → l'orga valide. La colonne existe (les events partenaires l'utilisent).
+          mode: priv ? 'curated' : 'open',
+          // 📍 l'event VIT sur la carte des events (chez-moi : point au niveau QUARTIER = adresse différée ✓)
+          ...(evLat != null && evLng != null ? { lat: evLat, lng: evLng } : {}),
+          active: true, created_by: userId, creator: myName || null,
+        }
+        // 1er essai : avec les extras (prix + photos). Si une colonne manque en base → 2e essai payload strict.
+        let r = await supabase.from('events').insert({ ...base, price: priceFinal, ...(photos.length ? { event_photos: photos } : {}) }).select('id').single()
+        if (r.error) r = await supabase.from('events').insert(base).select('id').single()
+        if (r.data?.id) {
+          realId = r.data.id
+          // L'hôte compte comme 1er participant (le trigger met taken à jour) — identique V1
+          await supabase.from('event_participants').insert({ event_id: realId, user_id: userId })
+        }
+      }
+    } catch { /* fallback local silencieux, comme V1 */ }
+    const id = realId || `g-user-${Date.now()}`
+    const localEv = {
+      id, emoji: c7.emoji, title: title.trim(), creator: 'Toi',
+      creatorBio: en ? 'Organizer of this event' : 'Organisateur·ice de cet événement',
+      creatorPhoto: null, certified: false,
+      date, time: time.trim(), starts_at: target.toISOString(), lieu: lieuFinal.trim(),
+      spots: maxN, taken: hostParty,
+      age_min: ageOn ? ageMin : null, age_max: ageOn ? ageMax : null,
+      price: priceFinal, bring: null, durationH: dur,
+      description: descFinal, tags, evGender: 'X', isGroupe: true,
+      home_private: home, pinned: fixed, mode: priv ? 'curated' : 'open',
+      eventPhotos: photos.length ? photos : ['linear-gradient(135deg,#542A44,#2a1020)'], // même fallback gradient que V1
+      eventPhotoEmojis: [c7.emoji], reviews: [],
+    }
+    setCreating(false)
+    onCreated(localEv, realId)
+  }
+
+  // ── styles réutilisés ──
+  const inputS = (filled: boolean): React.CSSProperties => ({ width: '100%', boxSizing: 'border-box', background: P.white, border: `1.5px solid ${filled ? P.pink : P.border}`, borderRadius: 12, padding: '12px 14px', fontSize: 14, color: P.text, outline: 'none', fontFamily: 'inherit', caretColor: P.pink })
+  const chipS = (on: boolean, col = P.pink): React.CSSProperties => ({ flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', border: `1.5px solid ${on ? col : P.border}`, background: on ? `${col}14` : 'transparent', color: on ? col : P.ink })
+  const labelS: React.CSSProperties = { fontSize: 10, fontWeight: 800, color: P.ink, letterSpacing: '.06em', marginBottom: 6 }
+  const stepDone = [true, !!(cat && title.trim()), step2Ok]
+  // 🧱 Navigation partagée footer + IN-FLOW (bug David 04.07 ×2 : « je ne peux pas faire suivant ni précédent » —
+  //    le footer fixe n'apparaissait pas sur son iPhone (viewport natif capricieux). Les mêmes boutons existent
+  //    désormais AUSSI en fin de contenu défilable → toujours atteignables en scrollant, quoi qu'il arrive.
+  const goPrev = () => { setErr(''); setStep(1) }
+  const goNext = () => {
+    if (!cat) { fail(en ? 'Pick a category first' : 'Choisis d\'abord une catégorie'); return }
+    if (!title.trim()) { fail(en ? 'Give it a title' : 'Donne-lui un titre'); return }
+    setErr(''); setStep(2)
+  }
+
+  // Conteneur borné au viewport DYNAMIQUE (pas inset:0 : sur Safari iOS son bottom:0 passe derrière la barre
+  // → la sheet alignée en bas y enfonçait son footer Retour/Continuer). height 100dvh = zone visible réelle.
+  // 🖥️ 11.07 : hauteurs en % du CONTENEUR (pas en vh) — dans le cadre iPhone web, 93vh = 93 % de la FENÊTRE
+  //    (> cadre) → le bouton Publier était coupé et « impossible de scroller ». Sur mobile : strictement pareil.
+  return (
+    <div className="evc2" style={{ position: 'fixed', inset: 0, zIndex: 9100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      {/* ✍️ David 11.07 : les placeholders = des CONSIGNES en italique (« dire à la personne quoi écrire »). */}
+      <style>{`.evc2 input::placeholder,.evc2 textarea::placeholder{font-style:italic;opacity:.72}`}</style>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(74,42,61,.55)', backdropFilter: 'blur(6px)' }} onClick={tryClose} />
+      <div style={{ position: 'relative', background: P.white, borderRadius: '22px 22px 0 0', height: '93%', maxHeight: '93%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalIn .3s cubic-bezier(.22,1,.36,1)', boxShadow: '0 -8px 40px rgba(83,41,67,.25)' }}>
+        {/* ⛔ BANNIÈRE D'ERREUR DANS LE MODAL (fix 08.07 : le toast passait derrière → mot interdit refusé
+            en silence). Tap pour fermer. */}
+        {err && (
+          <div onClick={() => setErr('')} style={{ position: 'absolute', left: 14, right: 14, bottom: 88, zIndex: 60, background: '#fff', border: `1.5px solid ${P.pink}`, borderRadius: 12, padding: '10px 13px', fontSize: 12.5, fontWeight: 700, color: P.pink, boxShadow: '0 6px 20px rgba(83,41,67,.3)', lineHeight: 1.45, cursor: 'pointer' }}>
+            {err}
+          </div>
+        )}
+
+        {/* Handle + header */}
+        <div style={{ padding: '10px 20px 0', flexShrink: 0 }}>
+          <div onTouchStart={e => { dragY.current = e.touches[0].clientY }} onTouchEnd={e => { if (e.changedTouches[0].clientY - dragY.current > 55) tryClose() }}
+            style={{ padding: '4px 0 10px', cursor: 'grab' }}>
+            <div style={{ width: 40, height: 5, borderRadius: 3, background: P.border, margin: '0 auto' }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ fontSize: 17, fontWeight: 900, color: P.plum }}>{en ? 'Host an event' : 'Organiser un événement'}</div>
+            <button onClick={tryClose} style={{ background: 'none', border: 'none', color: P.ink, fontSize: 20, cursor: 'pointer', padding: 4 }}>✕</button>
+          </div>
+          {/* Progression 3 gestes — cliquable en arrière seulement */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {[en ? 'The event' : 'L’événement', en ? 'The details' : 'Les détails'].map((l, i) => {
+              const n = (i + 1) as 1 | 2
+              const active = step === n, done = step > n
+              return (
+                <button key={l} onClick={() => { if (n < step) setStep(n) }}
+                  style={{ flex: 1, border: 'none', background: 'transparent', cursor: n < step ? 'pointer' : 'default', fontFamily: 'inherit', padding: 0 }}>
+                  <div style={{ height: 4, borderRadius: 2, background: active || done ? P.pink : P.border, marginBottom: 4, transition: '.2s' }} />
+                  <div style={{ fontSize: 9.5, fontWeight: active ? 900 : 600, color: active ? P.pink : done ? P.plum : P.ink, textAlign: 'center' }}>{done ? '✓ ' : ''}{l}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Corps scrollable (iOS : minHeight:0 + WebkitOverflowScrolling) */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '2px 20px 20px', boxSizing: 'border-box' }}>
+
+          {/* ══ PAGE 1 (maquette Mel 12.07) : Public/Privé · catégories · titre · photos ══ */}
+          {step === 1 && (()=>{
+            const melBtn = (name: string, on: boolean) => `/icons/mel/events2/events_bouton_${name}_${on ? 'on' : 'off'}.svg`
+            const PhotoTile = ({ idx, big = false }: { idx: number; big?: boolean }) => {
+              const url = photos[idx]
+              return (
+                <div onClick={() => { if (!url && !uploading) fileRef.current?.click() }}
+                  style={{ position: 'relative', flex: big ? 1.35 : 1, minHeight: big ? 118 : 54, borderRadius: 14, background: '#fff',
+                    border: `1.5px ${url ? 'solid' : 'dashed'} ${P.border}`, boxShadow: '0 3px 10px rgba(83,41,67,.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: url ? 'default' : 'pointer' }}>
+                  {url
+                    ? (<><img src={url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button onClick={e => { e.stopPropagation(); setPhotos(pp => pp.filter((_, j) => j !== idx)) }}
+                          style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'rgba(74,42,61,.75)', color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: 1, padding: 0 }}>✕</button></>)
+                    : (<span style={{ width: 34, height: 34, borderRadius: '50%', border: `1.5px solid ${P.ink}55`, color: P.ink, fontSize: 22, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{uploading ? '…' : '+'}</span>)}
+                </div>
+              )
+            }
+            return (
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: P.plum, margin: '2px 0 10px' }}>{en ? 'Host an event!' : 'Organise un événement !'}</div>
+              {/* ═ BLOCK 1 « choix du style » — Mel 13.07 AU PIXEL : Public 54h×124l · Privé 54h×113l ·
+                  32 px entre les deux · bloc centré dans les 340 px · légendes 7 px sur 2 LIGNES alignées
+                  au bord gauche du bouton +10 px, 8 px sous le bouton · ombre grise comme les fiches. ═ */}
+              <div style={{ display: 'flex', gap: 32, justifyContent: 'center', alignItems: 'flex-start', marginBottom: 22 }}>
+                {([[false, 'public', 124, en ? ['First come, first served!', 'No approval'] : ['Premier arrivé, premier servi !', 'Sans validation']],
+                   [true, 'prive', 113, en ? ['You approve each guest', 'max 10 people'] : ['Tu valides chaque personne', 'max 10 personnes']]] as [boolean, string, number, string[]][])
+                  .map(([v, name, w, lines]) => {
+                  const on = priv === v
+                  return (
+                    <button key={name as string} onClick={() => { setPriv(v as boolean); const cap = v ? EV_CAP_PRIVE : EV_CAP_PUBLIC; setMaxN(m => Math.min(cap, m)); setMinN(m => Math.min(cap, m)); setHostParty(h => Math.min(h, cap - 1)); if (!v && home) setHome(false) }}
+                      style={{ width: w as number, flexShrink: 0, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                      <img src={melBtn(name as string, on)} alt="" style={{ height: 54, width: w as number, display: 'block', objectFit: 'contain', filter: 'drop-shadow(0 3px 6px rgba(120,115,125,.22))' }} />
+                      {/* graisse CONSTANTE (David 14.07 : « ça devient en gras et le texte prend plus de place » → la page sautait) */}
+                      <div style={{ fontSize: 7, color: on ? P.plum : P.ink, fontWeight: 700, lineHeight: 1.4, marginTop: 8, marginLeft: 10, textAlign: 'left' }}>
+                        {(lines as string[]).map((ln, i) => <div key={i}>{ln}</div>)}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              {/* ═ BLOCK 2 catégories — Mel 13.07 : hauteur 45 px, 8 px entre boutons, AUCUN espace vertical
+                  entre les lignes, quinconce : ligne 1 (Soirée·Lifestyle·Sport) au point 0 · ligne 2
+                  (Communauté·Culture) décalée de 30 px · ligne 3 (Gastronomie·Bien-être) au point 0.
+                  ⚠️ « Entraide » RETIRÉE de cette page (mail Mel 13.07) — décision finale David+Mel en cours. ═ */}
+              {/* 🎨 Mel run 2 (14.07) : le BLOC entier recentré et élargi pour occuper les 340 px de large —
+                  la disposition des boutons ENTRE EUX (quinconce 0/30/0, gaps 8) ne bouge pas. */}
+              <div style={{ marginBottom: 22, width: '100%', maxWidth: 340, marginLeft: 'auto', marginRight: 'auto' }}>
+                {([['soiree', 'lifestyle', 'sport'], ['communaute', 'culture'], ['gastro', 'bienetre']] as string[][]).map((row, ri) => (
+                  <div key={ri} style={{ display: 'flex', gap: 8, marginLeft: ri === 1 ? 30 : 0 }}>
+                    {row.map(k => {
+                      const c = EVENT_CATS7.find(cc => cc.k === k); if (!c) return null
+                      const on = cat === k
+                      return (
+                        <button key={k} onClick={() => setCat(on ? null : k)} style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          <img src={melBtn(k, on)} alt={en ? c.en : c.fr} style={{ height: 45, display: 'block', filter: 'drop-shadow(0 3px 6px rgba(120,115,125,.22))' }} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+              {/* Titre — étiquette à gauche, comme la maquette */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 800, color: P.ink, flexShrink: 0 }}>{en ? 'Title:' : 'Titre :'}</span>
+                <input value={title} onChange={e => setTitle(e.target.value.slice(0, 60))} placeholder={en ? 'e.g. Burger workshop' : 'Ex : Atelier Burger'} style={inputS(!!title.trim())} />
+              </div>
+              {/* Photos — 1 grande + 2 petites (maquette). Tap une case vide = choisir une photo. */}
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: P.ink, marginBottom: 8 }}>{en ? 'Pick some photos!' : 'Choisis des photos !'}</div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <PhotoTile idx={0} big />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                  <PhotoTile idx={1} />
+                  <PhotoTile idx={2} />
+                </div>
+              </div>
+              <input ref={fileRef} type='file' accept='image/*' style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); e.target.value = '' }} />
+              <div style={{ fontSize: 9.5, color: P.ink, marginTop: 6 }}>{en ? 'Optional — a real photo makes people come.' : 'Optionnel — une vraie photo fait venir.'}</div>
+            </div>
+          )})()}
+
+          {/* ══ PAGE 2 (maquette Mel 12.07) : LA PHRASE À TROUS — même langage que la page d’ouverture.
+              Chaque trou s’ouvre DESSOUS (David : « exactement comme la mise en ligne »). ══ */}
+          {step === 2 && (() => {
+            const melBtn = (name: string, on: boolean) => `/icons/mel/events2/events_bouton_${name}_${on ? 'on' : 'off'}.svg`
+            // 🌙 après minuit (00h-05h), « aujourd'hui » est ambigu → on dit « cette nuit » (David 14.07, testé à 01h44)
+            const nightNow = new Date().getHours() < 5
+            const dispHor = `${date === 'Demain' ? (en ? 'tomorrow' : 'demain') : nightNow ? (en ? 'tonight' : 'cette nuit') : (en ? 'today' : 'aujourd’hui')} ${time}`
+            // 🎨 FOURNÉE MEL 16.07 « corrections phrase » — les MÊMES règles que la phrase de mise en présence
+            //    (docs/mel-fournee-design-14jul.md § MAIL 6) : mots à 22 px gris 40 %, lignes de 32 px, jamais
+            //    plus de 340 px, boutons = cadre à angles arrondis, contour 1 px, FOND = fond de page, 10 px
+            //    entre le mot et le cadre (des deux côtés). Rose = quand/où · vert = combien (son exemple).
+            //    Les roulettes (heures, nb de personnes) et la ligne d'adresse qui s'ouvre dessous existent
+            //    déjà (JogWheel, build 386) — c'est exactement ce qu'elle demande, on n'y touche pas.
+            const GREY40 = '#9B9B9B'
+            const trouS = (col: string, on: boolean): React.CSSProperties => ({ display: 'inline-block', margin: '0 10px', padding: '1px 7px', border: `1px solid ${col}`, borderRadius: 7, background: on ? `${col}14` : 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: 22, fontWeight: 600, lineHeight: '24px', letterSpacing: '-.01em', color: GREY40, verticalAlign: 'middle', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
+            const miniS: React.CSSProperties = { width: 24, height: 24, borderRadius: 7, border: `1px solid ${P.border}`, background: '#fff', color: P.green, fontSize: 15, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1, padding: 0, verticalAlign: 'middle' }
+            const panelS: React.CSSProperties = { background: '#fff', border: `1px solid ${P.border}`, borderRadius: 14, padding: '12px 13px', margin: '10px 0 4px', boxShadow: '0 5px 16px rgba(83,41,67,.09)' }
+            return (
+            <div>
+              {/* rappel catégorie + retour page 1 */}
+              {catDef && (
+                <button onClick={() => setStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: `${P.pink}0d`, borderRadius: 12, padding: '6px 12px 6px 6px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12 }}>
+                  <img src={melEventIcon(catDef.k, true) || undefined} alt="" width={26} height={26} style={{ display: 'block' }} />
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: P.plum }}>{title.trim() || (en ? catDef.en : catDef.fr)}</span>
+                  <span style={{ fontSize: 10, color: P.ink }}>{en ? 'edit' : 'modifier'}</span>
+                </button>
+              )}
+              {/* 🗣️ LA PHRASE */}
+              <div style={{ fontSize: 22, fontWeight: 600, color: GREY40, lineHeight: '32px', letterSpacing: '-.01em', maxWidth: 340, margin: '0 auto 2px' }}>
+                {/* ⚠️ même arbitrage 340 px qu'à la mise en présence : « Mon événement a lieu [aujourd'hui 22:00] »
+                    à 22 px déborde → le moment prend sa ligne. Cadres, 22 px et rythme 32 px conservés. */}
+                {en ? 'My event happens' : 'Mon événement a lieu'}
+                <br /><button onClick={() => setOpenEd(openEd === 'when' ? null : 'when')} style={{ ...trouS(P.pink, openEd === 'when'), marginLeft: 0 }}>{dispHor}</button>
+                <br />{en ? 'at' : 'à'}
+                <button onClick={() => { setOpenEd(openEd === 'where' ? null : 'where'); if (openEd !== 'where' && lieu.length >= 3) setShowSugg(true) }} style={trouS(P.pink, openEd === 'where')}>{lieuFinal.trim() || (en ? 'which place?' : 'quel lieu ?')}</button>{home ? '🏠' : ''}.
+                <br />{en ? 'It happens from' : 'Ça a lieu dès'}
+                <button onClick={() => setOpenEd(openEd === 'people' ? null : 'people')} style={trouS(P.green, openEd === 'people')}>{minN}</button>
+                {en ? 'person(s),' : 'personne(s),'}
+                <br />{en ? 'with' : 'avec'}
+                <button onClick={() => setOpenEd(openEd === 'people' ? null : 'people')} style={trouS(P.green, openEd === 'people')}>{maxN}</button>
+                {en ? 'maximum.' : 'personne(s) maximum.'}
+              </div>
+              {/* panneau QUAND — s’ouvre sous la phrase. 🎡 molettes à crans (Mel : les MÊMES que la mise en
+                  ligne, fini le sélecteur natif iOS) + 🧭 RÉCAP ABSOLU (David 14.07 01h44 : « demain 02:00 »
+                  = dans 24 h sans que ça se voie → on affiche la date résolue ET le « dans X h »). */}
+              {openEd === 'when' && (() => {
+                const [hh0, mm0] = time.split(':').map(Number)
+                const pad = (n: number) => String(n).padStart(2, '0')
+                // aujourd'hui : seuls les quarts d'heure ENCORE à venir (passé minuit tardif → liste vide = chip inutile)
+                const todaySlots = QUARTERS.filter(q => { const [h, m] = q.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.getTime() > Date.now() - 60000 })
+                const wheelSlots = date === 'Demain' ? QUARTERS : todaySlots
+                const target = new Date(); if (date === 'Demain') target.setDate(target.getDate() + 1); target.setHours(hh0 || 0, mm0 || 0, 0, 0)
+                const diffMs = target.getTime() - Date.now()
+                const inTxt = diffMs < -60000 ? (en ? 'already past!' : 'déjà passé !')
+                  : diffMs < 105 * 60000 ? `${en ? 'in' : 'dans'} ${Math.max(1, Math.round(diffMs / 60000))} min`
+                  : `${en ? 'in' : 'dans'} ${Math.round(diffMs / 3600000)} h`
+                return (
+                <div style={panelS}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                      {(['Aujourd\'hui', 'Demain'] as const).map(d => (
+                        <button key={d} onClick={() => { setDate(d); const ss = d === 'Demain' ? QUARTERS : todaySlots; if (!ss.includes(time)) setTime(ss[0] || time) }}
+                          style={{ ...chipS(date === d, P.green), padding: '8px 0' }}>{d === 'Aujourd\'hui' ? (en ? (nightNow ? 'Tonight' : 'Today') : (nightNow ? 'Cette nuit' : 'Aujourd’hui')) : (en ? 'Tomorrow' : 'Demain')}</button>
+                      ))}
+                    </div>
+                    {/* 🎡 LA molette (JogWheel, la même que la mise en ligne — David 14.07 build 386) */}
+                    <div style={{ width: 118, flexShrink: 0 }}>
+                      <JogWheel slots={wheelSlots} value={time} onChange={setTime} accent />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: diffMs < -60000 ? P.pink : P.green, marginTop: 8 }}>
+                    = {target.toLocaleDateString(en ? 'en-GB' : 'fr-CH', { weekday: 'short', day: 'numeric', month: 'short' })} {pad(hh0 || 0)}:{pad(mm0 || 0)} · {inTxt}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    {DUR_OPTS.map(o => (
+                      <button key={o.h} onClick={() => setDur(o.h)} style={{ ...chipS(dur === o.h, P.green), padding: '8px 0', fontSize: 12 }}>{o.label}</button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 9.5, color: P.ink, marginTop: 5 }}>{en ? 'Duration — avoids clashes with your other plans.' : 'Durée — évite les chevauchements avec tes autres plans.'}</div>
+                </div>
+              )})()}
+              {/* panneau PERSONNES — 2 JogWheels côte à côte (pattern exact de la feuille d'âge de la mise
+                  en ligne — David 14.07). Min DUR = 2 · plafond selon le type (privé 10 / public 20, cf. constantes). */}
+              {openEd === 'people' && (() => {
+                const cap = priv ? EV_CAP_PRIVE : EV_CAP_PUBLIC
+                const slots = Array.from({ length: cap - 1 }, (_, i) => String(i + 2))
+                const lblS: React.CSSProperties = { fontSize: 10.5, fontWeight: 800, color: P.ink, textAlign: 'center', marginBottom: 4 }
+                return (
+                <div style={panelS}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={lblS}>{en ? 'happens from' : 'ça a lieu dès'}</div>
+                      <JogWheel slots={slots} value={String(Math.max(2, Math.min(cap, minN)))} onChange={v => { const n = parseInt(v); setMinN(n); if (n > maxN) setMaxN(n) }} accent />
+                    </div>
+                    <div style={{ fontSize: 16, color: P.ink, fontWeight: 800 }}>→</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={lblS}>{en ? 'maximum' : 'maximum'}</div>
+                      <JogWheel slots={slots} value={String(Math.max(2, Math.min(cap, maxN)))} onChange={v => { const n = parseInt(v); setMaxN(n); if (n < minN) setMinN(n); setHostParty(h => Math.min(h, n - 1)) }} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 9.5, color: P.ink, marginTop: 6 }}>
+                    {priv ? (en ? '🔒 Private event — 10 people max.' : '🔒 Événement privé — 10 personnes max.') : (en ? '🔓 Public event — up to 20 (more with verified accounts later).' : '🔓 Événement public — jusqu\'à 20 pour l\'instant (plus selon le compte, plus tard).')}
+                  </div>
+                </div>
+              )})()}
+              {/* panneau OÙ — EXACTEMENT le pattern de la mise en ligne : barre + suggestions dessous */}
+              {openEd === 'where' && (
+                <div style={panelS}>
+                  {!home ? (
+                    <div style={{ position: 'relative' }}>
+                      <input autoFocus value={lieu} onChange={e => onLieuChange(e.target.value)} onFocus={() => { if (lieu.length >= 3) setShowSugg(true) }}
+                        placeholder={en ? 'Café, square, address…' : 'Bar du Marché, Place de la Palud…'} style={inputS(!!lieu.trim())} />
+                      {showSugg && (addrResults.length > 0 || addrLoading) && (
+                        <div style={{ marginTop: 6, background: P.white, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 6px 20px rgba(83,41,67,.12)' }}>
+                          {addrLoading && addrResults.length === 0 && <div style={{ padding: '10px 14px', fontSize: 12, color: P.ink }}>{en ? 'Searching…' : 'Recherche…'}</div>}
+                          {addrResults.map((r: any, i: number) => { const name = r.name || (r.display_name || '').split(',')[0]; const addr = fmtAddr(r); return (
+                            <div key={i} onClick={() => { pickAddr(name, addr, parseFloat(r.lat), parseFloat(r.lon)); setOpenEd(null) }} style={{ padding: '10px 14px', borderBottom: i < addrResults.length - 1 ? `1px solid ${P.border}` : 'none', cursor: 'pointer' }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: P.text }}>{name}</div>
+                              {addr && <div style={{ fontSize: 10.5, color: P.ink, marginTop: 1 }}>📍 {addr}</div>}
+                            </div>
+                          )})}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <input autoFocus value={quartier} onChange={e => setQuartier(e.target.value.slice(0, 60))} placeholder={en ? 'Your neighbourhood only — e.g. Ouchy, Lausanne' : 'Juste ton quartier — ex : Ouchy, Lausanne'} style={inputS(!!quartier.trim())} />
+                      <div style={{ fontSize: 10.5, color: P.text, lineHeight: 1.5, marginTop: 8 }}>🛡️ {en ? 'Only the neighbourhood is shown — exact address later, to confirmed guests only.' : 'On n’affiche que le quartier — l’adresse exacte plus tard, aux confirmé·e·s seulement.'}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Décris ton événement ! */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '12px 0 6px' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: P.ink }}>{en ? 'Describe your event!' : 'Décris ton événement !'}</div>
+                <div style={{ fontSize: 10, color: P.ink }}>{desc.length}/300</div>
+              </div>
+              <textarea value={desc} onChange={e => setDesc(e.target.value.slice(0, 300))} rows={5} maxLength={300}
+                placeholder={en ? 'Describe the plan: what you’ll do, what to bring, how to get there…' : 'Décris le déroulé : on fait quoi, quoi amener, comment venir…'}
+                style={{ ...inputS(!!desc.trim()), resize: 'none', lineHeight: 1.55, fontSize: 13.5, minHeight: 88, boxShadow: '0 4px 14px rgba(83,41,67,.07)' }} />
+              {/* ═ Souple / Fixe — Mel 13.07 AU PIXEL (comme le block 1 page 1) : Souple 54h×128l ·
+                  Fixe 54h×102l · 32 px entre · bloc centré · légendes 7 px 2 lignes gauche +10 px · ombre. ═ */}
+              <div style={{ display: 'flex', gap: 32, justifyContent: 'center', alignItems: 'flex-start', margin: '16px 0 6px' }}>
+                {([[false, 'souple', 128, en ? ['I can still be Clutched', 'for something else'] : ['On peut encore me Clutcher', 'pour autre chose']],
+                   [true, 'fixe', 102, en ? ['I want to do this!', 'and nothing else'] : ['Je veux faire ça !', 'et rien d’autre']]] as [boolean, string, number, string[]][]).map(([v, name, w, lines]) => {
+                  const on = fixed === v
+                  return (
+                    <button key={name as string} onClick={() => setFixed(v as boolean)} style={{ width: w as number, flexShrink: 0, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                      <img src={melBtn(name as string, on)} alt="" style={{ height: 54, width: w as number, display: 'block', objectFit: 'contain', filter: 'drop-shadow(0 3px 6px rgba(120,115,125,.22))' }} />
+                      {/* graisse CONSTANTE (David 14.07 : « ça devient en gras et le texte prend plus de place » → la page sautait) */}
+                      <div style={{ fontSize: 7, color: on ? P.plum : P.ink, fontWeight: 700, lineHeight: 1.4, marginTop: 8, marginLeft: 10, textAlign: 'left' }}>
+                        {(lines as string[]).map((ln, i) => <div key={i}>{ln}</div>)}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              {/* ═ « Rajoute des options » — Mel 13.07 : bouton + de 32 px, lettres 17 px, ombre. ═ */}
+              <button onClick={() => setOptOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'transparent', border: 'none', padding: '10px 0', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <span style={{ width: 32, height: 32, borderRadius: '50%', border: `1.5px solid ${P.plum}55`, background: '#fff', color: P.plum, fontSize: 17, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, transform: optOpen ? 'rotate(45deg)' : 'none', transition: '.15s', boxShadow: '0 3px 6px rgba(120,115,125,.22)' }}>+</span>
+                <span style={{ fontSize: 17, fontWeight: 800, color: P.plum }}>{en ? 'Add options' : 'Rajoute des options'}</span>
+              </button>
+              {optOpen && (
+                <div style={{ borderTop: `1px solid ${P.border}`, paddingTop: 12 }}>
+                  {/* 🏠 Chez moi (quartier seul, privé forcé) */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={labelS}>📍 {en ? 'PLACE TYPE' : 'TYPE DE LIEU'}</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => setHome(false)} style={chipS(!home)}>{en ? 'Public place' : 'Lieu public'}</button>
+                      <button onClick={() => { setHome(true); setPriv(true); setMaxN(m => Math.min(10, m)); setMinN(m => Math.min(10, m)); setHostParty(h => Math.min(h, 9)) }} style={chipS(home, P.plum)}>🏠 {en ? 'My place' : 'Chez moi'}</button>
+                    </div>
+                    {home && <div style={{ fontSize: 10, color: P.ink, marginTop: 6 }}>🏠 {en ? 'At home = always private. Set the neighbourhood in the sentence above.' : 'Chez toi = toujours privé. Règle le quartier dans la phrase au-dessus (le trou rose).'}</div>}
+                  </div>
+                  {/* 🎳 « Vous êtes déjà combien ? » (la pétanque de David — déplacée en option 12.07) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: P.text }}>{en ? 'How many are you already?' : 'Vous êtes déjà combien ?'}</div>
+                      <div style={{ fontSize: 9.5, color: P.ink }}>{en ? 'You + friends already coming — their spots are taken' : 'Toi + les copains déjà de la partie — leurs places sont prises'}</div>
+                    </div>
+                    <button onClick={() => setHostParty(v => Math.max(1, v - 1))} style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${P.border}`, background: 'transparent', color: P.pink, fontSize: 19, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }}>−</button>
+                    <span style={{ fontSize: 16, fontWeight: 900, color: P.plum, minWidth: 22, textAlign: 'center' }}>{hostParty}</span>
+                    <button onClick={() => setHostParty(v => { const nv = Math.min(v + 1, Math.max(1, maxN - 1)); if (nv >= maxN) setMaxN(Math.min(priv ? EV_CAP_PRIVE : EV_CAP_PUBLIC, nv + 1)); return nv })} style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${P.border}`, background: 'transparent', color: P.pink, fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }}>+</button>
+                  </div>
+                  {/* Limite d’âge */}
+                  <div style={{ marginBottom: 14 }}>
+                    <button onClick={() => setAgeOn(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', marginBottom: ageOn ? 8 : 0 }}>
+                      <span style={labelS as any}>🔞 {en ? 'AGE LIMIT' : 'LIMITE D’ÂGE'} <span style={{ fontWeight: 600 }}>· {en ? 'optional' : 'optionnel'}</span></span>
+                      <span style={{ width: 34, height: 19, borderRadius: 10, background: ageOn ? P.green : P.border, position: 'relative', transition: '.15s', flexShrink: 0, display: 'inline-block' }}>
+                        <span style={{ position: 'absolute', top: 2, left: ageOn ? 17 : 2, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: '.15s' }} />
+                      </span>
+                    </button>
+                    {/* 🎡 JogWheels (David 14.07 : « les mêmes molettes que quand on choisit l'âge » — c'est
+                        littéralement le même composant que la feuille d'âge). Cross-ajustement min/max. */}
+                    {ageOn && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 10.5, fontWeight: 800, color: P.ink, textAlign: 'center', marginBottom: 4 }}>{en ? 'from' : 'de'}</div>
+                          <JogWheel slots={AGE_SLOTS} value={String(ageMin)} onChange={v => { const n = parseInt(v); setAgeMin(n); if (n > ageMax) setAgeMax(n) }} accent />
+                        </div>
+                        <div style={{ fontSize: 16, color: P.ink, fontWeight: 800 }}>→</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 10.5, fontWeight: 800, color: P.ink, textAlign: 'center', marginBottom: 4 }}>{en ? 'to' : 'à'}</div>
+                          <JogWheel slots={AGE_SLOTS} value={String(ageMax)} onChange={v => { const n = parseInt(v); setAgeMax(n); if (n < ageMin) setAgeMin(n) }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Niveau */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={labelS}>{en ? 'LEVEL' : 'NIVEAU'} <span style={{ fontWeight: 600 }}>· {en ? 'optional' : 'optionnel'}</span></div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {([[null, en ? 'Everyone' : 'Tous'], ['debutant', en ? 'Beginner' : 'Débutant'], ['moyen', en ? 'Casual' : 'Moyen'], ['avance', en ? 'Advanced' : 'Avancé']] as const).map(([k, l]) => (
+                        <button key={String(k)} onClick={() => setLevel(k)} style={{ ...chipS(level === k), padding: '8px 0', fontSize: 11.5 }}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Prix */}
+                  <div style={{ marginBottom: 6 }}>
+                    <div style={labelS}>💰 {en ? 'PRICE' : 'PRIX'}</div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
+                      {[en ? 'Free' : 'Gratuit', '5 CHF', '10 CHF', '20 CHF'].map(pz => (
+                        <button key={pz} onClick={() => setPrice(pz)} style={{ ...chipS(price === pz), padding: '8px 0', fontSize: 11.5 }}>{pz}</button>
+                      ))}
+                    </div>
+                    <input value={price} onChange={e => setPrice(e.target.value.slice(0, 40))} placeholder={en ? 'Or another price… (default: Free)' : 'Ou un autre prix… (par défaut : Gratuit)'} style={{ ...inputS(false), fontSize: 13, padding: '10px 13px' }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )})()}
+
+          {/* 🧱 NAVIGATION IN-FLOW (doublon volontaire du footer — bug David : footer invisible sur son iPhone).
+              En fin de contenu défilable → TOUJOURS atteignable en scrollant, quel que soit le viewport. */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 18, paddingBottom: 6 }}>
+            {step > 1 && (
+              <button onClick={goPrev} style={{ flex: '0 0 auto', padding: '13px 16px', borderRadius: 14, border: `1.5px solid ${P.border}`, background: 'transparent', color: P.plum, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ← {en ? 'Back' : 'Retour'}
+              </button>
+            )}
+            {step < 2 ? (
+              <button onClick={goNext} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: stepDone[step] ? P.pink : `${P.plum}26`, color: stepDone[step] ? '#fff' : P.ink, fontSize: 15, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {en ? 'Continue' : 'Continuer'} →
+              </button>
+            ) : (
+              <button onClick={publish} disabled={creating} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: P.pink, color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {creating ? (en ? 'Creating…' : 'Création…') : (en ? '✦ Publish event' : '✦ Publier l\'événement')}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Pied fixe : navigation des gestes */}
+        <div style={{ flexShrink: 0, padding: '12px 20px calc(var(--sab, 0px) + 16px)', borderTop: `1px solid ${P.border}`, background: P.white, display: 'flex', gap: 8 }}>
+          {step > 1 && (
+            <button onClick={goPrev} style={{ flex: '0 0 auto', padding: '14px 18px', borderRadius: 14, border: `1.5px solid ${P.border}`, background: 'transparent', color: P.plum, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+              ← {en ? 'Back' : 'Retour'}
+            </button>
+          )}
+          {step < 2 ? (
+            <button onClick={goNext}
+              style={{ flex: 1, padding: '14px', borderRadius: 14, border: 'none', background: stepDone[step] ? P.pink : `${P.plum}26`, color: stepDone[step] ? '#fff' : P.ink, fontSize: 15, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', transition: '.2s' }}>
+              {en ? 'Continue' : 'Continuer'} →
+            </button>
+          ) : (
+            <button onClick={publish} disabled={creating}
+              style={{ flex: 1, padding: '14px', borderRadius: 14, border: 'none', background: P.pink, color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {creating ? (en ? 'Creating…' : 'Création…') : (en ? '✦ Publish event' : '✦ Publier l\'événement')}
+            </button>
+          )}
+        </div>
+
+        {/* Confirmation avant de quitter si commencé (même garde-fou que V1) */}
+        {confirmClose && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(74,42,61,.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ background: P.white, borderRadius: 18, padding: '20px 18px', maxWidth: 300, textAlign: 'center', boxShadow: '0 20px 50px rgba(83,41,67,.4)' }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: P.plum, marginBottom: 6 }}>{en ? 'Leave without publishing?' : 'Quitter sans publier ?'}</div>
+              <div style={{ fontSize: 12, color: P.ink, lineHeight: 1.5, marginBottom: 16 }}>{en ? 'You started filling in the event. Everything will be lost.' : 'Tu as commencé à remplir l\'événement. Tout sera perdu.'}</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setConfirmClose(false)} style={{ flex: 1, padding: '11px', borderRadius: 11, border: `1px solid ${P.border}`, background: 'transparent', color: P.plum, fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{en ? 'Continue' : 'Continuer'}</button>
+                <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 11, border: 'none', background: P.plum, color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{en ? 'Leave' : 'Quitter'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
