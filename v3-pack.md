@@ -1,4 +1,4 @@
-# PACK CONTRADICTEURS — CLUTCH V3 · v1.3 · 25.08.2026 (soir)
+# PACK CONTRADICTEURS — CLUTCH V3 · v1.4 · 26.08.2026
 
 ## CURRENT STATE ID
 - Date : 25.08.2026 tard le soir · TestFlight build 4 + web à jour (le web porte déjà le soir)
@@ -93,7 +93,19 @@ atteint (jamais rattrapée, TODO assumé). · Anti-multi-comptes : email seul = 
 pas empêché — chantier hérité Q-05). · Anti-oracle par timing : non mesuré (P1). ·
 Report + suppression de compte absents (P0 avant externe).
 
-## 8 · DELTA v1.3 — LE PREMIER TEST RÉEL A EU LIEU (25.08 soir)
+## 8 · DELTA v1.4 — LE TRI DU RADAR V4 EST FAIT (26.08)
+Les réponses GPT (parties 1-3) + commentaires David ont été triées sur pièces : voir RADAR.md
+(le registre unique), CLUTCH-MUST-NEVER.md (12 interdictions), FAILURE_LIBRARY.md,
+HUMAN_CONCEPTS_LAB.md. Gouvernance gravée : BUILD/RADAR lanes + 5 cerveaux + Feature
+Contract + SIMPLE·UTILE·SÛR·FUN + rapport 5 lignes. CODÉ (validés, 83 tests verts) :
+retrait d'étincelle UI + anti-clignotement (retirée = pas renvoyable même opportunité) +
+quota GLISSANT (fermer/rouvrir ne réinitialise rien) + MASQUER (portée fenêtre, jamais
+révélé). TUÉS : karma-sanction de visibilité, chaud/froid par inactivité, last-seen précis,
+files d'attente. A8-CANDIDAT (amendement art. 8, texte GPT) attend Mel + Dom. Prochaine
+étape produit : test avec des personnes N'AYANT PAS participé à la conception, sans
+explication préalable.
+
+## 8ter · DELTA v1.3 — LE PREMIER TEST RÉEL A EU LIEU (25.08 soir)
 David et Mel ont vécu la boucle complète (mutuelle → speed chat → vote secret → fin neutre).
 Décisions de test, codées et testées le soir même : V3-013 étincelles reçues VISIBLES
 (« mode bourrin » : le double-aveugle tombe, les refus restent neutres) · V3-014 OUI+OUI
