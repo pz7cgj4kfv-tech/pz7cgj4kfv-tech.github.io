@@ -1,4 +1,12 @@
-# PACK CONTRADICTEURS — CLUTCH V3 · v1 · 25.08.2026
+# PACK CONTRADICTEURS — CLUTCH V3 · v1.1 · 25.08.2026
+
+## ⚡ DELTA DU JOUR (25.08)
+La boucle centrale est VIVANTE et testable par les fondateurs : créneau → présences (carte
+dessinée par Mel) → étincelle réciproque atomique → conversation qui s'ouvre dans l'onglet
+Chat (round au premier échange réciproque, vote secret de continuer, fins neutres, mort par le
+temps commun). Build 4 sur TestFlight + web à jour. 28 tests d'intégration verts. Prochaine
+slice : le geste Clutch (poke silencieux → « on se voit ? » → zone équitable). Les 3 votes des
+fondateurs (section 4.1) restent le vrai bloqueur de gouvernance : Dom ne s'est pas prononcé.
 
 > Document auto-suffisant pour un challenger externe (Claude conversationnel, GPT, ou un panel).
 > Il est régénéré par Claude Code à chaque session de travail et publié à une URL fixe.
