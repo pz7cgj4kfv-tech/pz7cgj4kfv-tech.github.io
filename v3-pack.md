@@ -1,4 +1,4 @@
-# PACK CONTRADICTEURS — CLUTCH V3 · v1.2 · 25.08.2026
+# PACK CONTRADICTEURS — CLUTCH V3 · v1.3 · 25.08.2026 (soir)
 
 ## CURRENT STATE ID
 - Date : 25.08.2026 (soir) · commit `70c6481` · TestFlight **build 4** (uploadé)
@@ -94,7 +94,19 @@ atteint (jamais rattrapée, TODO assumé). · Anti-multi-comptes : email seul = 
 pas empêché — chantier hérité Q-05). · Anti-oracle par timing : non mesuré (P1). ·
 Report + suppression de compte absents (P0 avant externe).
 
-## 8 · DELTA DEPUIS v1.1
+## 8 · DELTA v1.3 — LE PREMIER TEST RÉEL A EU LIEU (25.08 soir)
+David et Mel ont vécu la boucle complète (mutuelle → speed chat → vote secret → fin neutre).
+Décisions de test, codées et testées le soir même : V3-013 étincelles reçues VISIBLES
+(« mode bourrin » : le double-aveugle tombe, les refus restent neutres) · V3-014 OUI+OUI
+ouvre le chat IMMÉDIATEMENT · V3-015 « Garder le lien » (privé, réciproque = LIEN, onglet
+Liens vivant) · V3-016 chrono-checkpoint visible + « main invisible » v1 (rappel à 3 min).
+BUG-002 CORRIGÉ (annulation de fenêtre / blocage ferment désormais les conversations, avec
+recalcul sur la 2e fenêtre). BUG-003/004 (majuscule iPhone, session) corrigés. 74 tests
+verts. Nouvelles questions ouvertes pour TOI : voir le prompt dédié
+https://pz7cgj4kfv-tech.github.io/v3-prompt.md (mode bourrin, main invisible, album privé,
+indicateurs de frappe, anti-capture). Au Lab : IDEA-0015→0018.
+
+## 8bis · DELTA v1.2 (historique)
 
 Mandat Maître reçu et exécuté en round de réconciliation A→P (radiographie complète : réel
 vérifié, matrice d'états v1, invariants audités, table de décisions, plan de vitesse,
