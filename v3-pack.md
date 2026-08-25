@@ -1,10 +1,10 @@
 # PACK CONTRADICTEURS — CLUTCH V3 · v1.3 · 25.08.2026 (soir)
 
 ## CURRENT STATE ID
-- Date : 25.08.2026 (soir) · commit `70c6481` · TestFlight **build 4** (uploadé)
-- Tests verts : 47 intégration + 10 unitaires = 57 · Migrations : 4 (001→004), LOCAL = TEST (Zurich) · PROD : pas encore créée (volontaire)
-- Dernière slice VALIDÉE : 3 (rooms/chat) · Prochaine : 4 (PairOpening + Clutch + MeetSession)
-- Événement du jour : Mandat Maître reçu → ROUND DE RÉCONCILIATION A→P rendu (`docs/RECONCILIATION-MANDAT-25aug.md`) ; BUG-002 découvert par la matrice d'états (voir Risques)
+- Date : 25.08.2026 tard le soir · TestFlight build 4 + web à jour (le web porte déjà le soir)
+- Tests verts : 64 intégration + 10 unitaires = 74 · Migrations : 7 (001→007) en local, cloud en attente d'un db push David (005→007)
+- Dernière slice VALIDÉE : 3 + slice 6 minimale (Liens) · Prochaine : 4 (PairOpening + Clutch + MeetSession)
+- Événements du jour : Mandat Maître → réconciliation A→P · audit GLOBAL-READY · PREMIER TEST RÉEL David+Mel (voir Delta v1.3)
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
 > décisions historiques, /hq, /scenario, app /app2…) est de l'HISTORIQUE ou du V2 CLASSIC.
@@ -33,20 +33,21 @@ débogué et de leçons (73 invariants → 66 tests de naissance).
 Comptes (DOB privée) · fenêtres (max 2, annulation, refus structurés) · présence réelle
 (heartbeat, « publier n'est pas être là ») · découverte temporelle (carte dessinée par Mel) ·
 étincelle réciproque ATOMIQUE (verrou de paire, la course simultanée finit mutuelle) · refus
-NEUTRES indistinguables (bloqué/genre/âge/sans-fenêtre = même code) · quota 5/fenêtre ·
-blocage · et la CONVERSATION : la room naît DANS la transaction de la mutuelle ; en `waiting`
+NEUTRES indistinguables (bloqué/genre/âge/sans-fenêtre = même code) · étincelles REÇUES
+VISIBLES (V3-013 « mode bourrin ») · quota 5/fenêtre · blocage (qui ferme aussi la
+conversation, BUG-002 corrigé) · « Garder le lien » privé → LIEN mutuel (onglet Liens) · et la CONVERSATION : la room naît DANS la transaction de la mutuelle ; en `waiting`
 les deux peuvent écrire (illimité — question H2) ; le round démarre au premier échange
-RÉCIPROQUE (`round = min(10 min, fin du temps commun)`) ; vote secret de continuer
-(irréversible, réponse muette, invisible de l'autre — garanti par zéro policy SELECT + test) ;
-OUI+OUI → `open` jusqu'au bout du temps commun ; toute autre fin est neutre ; mort par
+RÉCIPROQUE (`round = min(10 min, fin du temps commun)`, CHRONO minutes visible) ; vote secret
+de continuer (irréversible, invisible de l'autre — testé) ; OUI+OUI → `open` IMMÉDIATEMENT
+(V3-014) et sinon résolution à l'échéance ; toute autre fin est neutre ; mort par
 l'horloge SERVEUR (résolution paresseuse, aucun client requis) ; « terminer » à tout moment.
 Les conversations fermées restent en base, l'UI ne montre que 48 h (question H6).
 
 ## 3 · NON CONSTRUIT
 
 Geste Clutch (poke silencieux → « on se voit ? ») · MeetSession · zone équitable (BLOQUÉE par
-un audit anti-triangulation obligatoire avant réutilisation du moteur V2) · Angel · Keep/Liens
-· photos de profil · push · Report · suppression de compte (les deux = exigences Apple/LPD
+un audit anti-triangulation obligatoire avant réutilisation du moteur V2) · Angel · le RÉVEIL
+des Liens · photos de profil · push · Report · suppression de compte (les deux = exigences Apple/LPD
 avant tout utilisateur externe) · modération (vote fondateur attendu) · design final.
 
 ## 4 · DÉCISIONS VERROUILLÉES (ne pas re-débattre sans fait nouveau)
@@ -87,9 +88,7 @@ côté simulation) et par le pilote.
 
 ## 7 · RISQUES CONNUS (on ne se ment pas)
 
-**BUG-002 (P0, réservé, fix imminent)** : annuler sa fenêtre ou bloquer ne ferme pas une
-conversation déjà née — elle survit jusqu'à son échéance initiale. Trouvé par la matrice
-d'états avant tout utilisateur. · Mutuelle sans conversation possible quand le plafond est
+**BUG-002 : CORRIGÉ le 25.08 au soir** (migration 007, 5 tests). · Mutuelle sans conversation possible quand le plafond est
 atteint (jamais rattrapée, TODO assumé). · Anti-multi-comptes : email seul = FAIBLE (réduit,
 pas empêché — chantier hérité Q-05). · Anti-oracle par timing : non mesuré (P1). ·
 Report + suppression de compte absents (P0 avant externe).
