@@ -1,10 +1,10 @@
 # PACK CONTRADICTEURS — CLUTCH V3 · v1.4 · 26.08.2026
 
-## CURRENT STATE ID
-- Date : 25.08.2026 tard le soir · TestFlight build 4 + web à jour (le web porte déjà le soir)
-- Tests verts : 64 intégration + 10 unitaires = 74 · Migrations : 7 (001→007) en local, cloud en attente d'un db push David (005→007)
-- Dernière slice VALIDÉE : 3 + slice 6 minimale (Liens) · Prochaine : 4 (PairOpening + Clutch + MeetSession)
-- Événements du jour : Mandat Maître → réconciliation A→P · audit GLOBAL-READY · PREMIER TEST RÉEL David+Mel (voir Delta v1.3)
+## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
+- Horodatage : 2026-08-26 22:47 UTC · commit `dba209e` · build client **6**
+- Assertions de test : **93** dans 8 fichiers d'intégration (+ 10 tests unitaires de domaine)
+- Migration locale la plus récente : **11_decouverte_croisee** · réellement présente sur le cloud (sondée) : **10**
+- Si ces deux nombres diffèrent, le cloud attend un `supabase db push` de David.
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
 > décisions historiques, /hq, /scenario, app /app2…) est de l'HISTORIQUE ou du V2 CLASSIC.
@@ -54,31 +54,40 @@ avant tout utilisateur externe) · modération (vote fondateur attendu) · desig
 
 Les 10 invariants de la constitution 24.08, dont : temps commun réel = condition du live ·
 réciprocité avant tout message · PAS de messagerie asynchrone (tue « earned async ») · refus
-jamais exposés · votes de paire privés · jamais la position · pas d'optimisation du temps
-passé · préférences souples classent sans éliminer. Et du round de réconciliation (consensus
+jamais exposés · votes de paire privés · jamais la position · article 8 (pas d'optimisation du temps passé) ACTIF MAIS EN RÉVISION FORMELLE · préférences souples classent sans éliminer. Et du round de réconciliation (consensus
 double challenge) : chat froid MORT (le premier message est l'invitation) · « chaud » = open
 dans le temps commun, jamais une inbox · Continue ≠ Keep ≠ Clutch, jamais fusionnés ·
 Continue OUI+OUI ne crée pas de Keep · MeetSession = objet distinct de la conversation ·
 Spark temporelle (expire avec les fenêtres, jamais « 7 jours »).
 
-## 5 · DÉCISIONS OUVERTES — c'est ICI qu'on attend les challengers
+## 5 · ÉTAT RÉEL DE CHAQUE DÉCISION (DELTA-02 : plus rien n'est « ouvert » par paresse)
 
-- **H1 (désaccord GPT ↔ Claude conv., non tranché)** : le temps commun finit PENDANT le round.
-  Code actuel = A (round raccourci au temps commun). GPT = B (round impossible sous un minimum
-  configurable) + C (proposer l'extension volontaire de fenêtre). Arguments neufs bienvenus.
-- **H2** : avant la première réponse, combien de messages unilatéraux ? (aujourd'hui illimité ;
-  recommandation 1 seul, en paramètre).
-- **H3** : le vote « continuer » doit-il être rétractable jusqu'à la résolution du round ?
-- **H5** : interdire le chevauchement des 2 fenêtres d'une même personne ?
-- **H6** : rétention des conversations fermées (privacy) : purge à J+2 ? J+30 ? garder ?
-- **H9** : nommer la fin naturelle (« votre temps commun est terminé ») en gardant neutres
-  toutes les fins humaines ?
-- **Les 3 votes fondateurs** : ① conversation excellente sans rencontre = succès ? ② lieu +
-  créneau saisis dans Clutch au moment « on se voit » ? ③ modération : rien / filtre local /
-  examen sur signalement / scan serveur ?
-- **Slice 4 à dessiner** : la MEILLEURE micro-interaction du poke silencieux (l'autre voit son
-  bouton s'allumer, jamais « elle veut te voir »).
-- **Design** : thème blanc (charte Mel) vs prune sombre (V2) : arguments nocturnes bienvenus.
+Statuts : **OUVERTE** (personne n'a tranché) · **DÉCIDÉE-NON-CODÉE** · **CODÉE** · **REMPLACÉE**.
+
+| Réf | Sujet | Statut | Détail |
+|---|---|---|---|
+| Q2 | découverte croisée même en mode discuter | **CODÉE** | David 27.08 ; migration 011, 10 tests |
+| Q5 | re-parler après une fin | **DÉCIDÉE-NON-CODÉE** | lien mutuel → tout de suite ; sinon 60 min, cause jamais révélée |
+| H1 | temps commun qui finit pendant le round | **OUVERTE** | le code fait A ; B (round impossible sous un minimum) reste à voter |
+| H2 | messages avant la première réponse | **OUVERTE** | illimité aujourd'hui ; « 1 seul » proposé, jamais voté |
+| H3 | vote « continuer » rétractable | **DÉCIDÉE (statu quo)** | David 25.08 en test : il reste posé. GPT le donne pour « convergé rétractable » : c'est FAUX |
+| H5 | chevauchement de mes deux créneaux | **OUVERTE** | rien ne l'empêche |
+| H6 | rétention | **DÉCIDÉE (direction)** | l'utilisateur ne voit aucun historique ; le programme garde un temps borné. Découpage en 4 politiques adopté (DELTA-13) |
+| H9 | nommer la fin naturelle | **OUVERTE** | proposé, jamais voté |
+| A8 | article 8 | **ACTIF, EN RÉVISION FORMELLE** | l'ancien texte reste exécutoire ; le candidat attend Mel et Dom (DELTA-03) |
+| 3 votes | succès sans rencontre · lieu saisi · modération | **OUVERTES** | Dom ne s'est pas prononcé |
+
+⚠️ **Correction adressée au challenger** : les H1, H2, H5, H9 n'ont jamais été votées par les
+fondateurs, et H3 a été tranchée dans l'autre sens que ce qui est affirmé. Une recommandation
+d'un contradicteur n'est pas une décision : seuls David, Mel et Dom décident.
+
+## 5bis · BUILD / RADAR / BLOCKERS (DELTA-20)
+
+**BUILD NOW** (ce qui rapproche du pilote) : slice 4A (le poke privé jusqu'à l'accord mutuel
+de se voir) · cooldown de paire (Q5) · balayage i18n · signalement et suppression de compte.
+**RADAR** (étudié, volontairement pas codé) : voir `RADAR.md` (R1→R16).
+**BLOCKERS** (les seules choses autorisées à interrompre le Build) : un bug de sécurité, une
+incohérence constitutionnelle, une perte de données, un blocage total des testeurs.
 
 ## 6 · HYPOTHÈSES ET PARAMÈTRES (jamais des lois)
 
