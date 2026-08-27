@@ -1,7 +1,7 @@
 # PACK CONTRADICTEURS — CLUTCH V3 · v1.4 · 26.08.2026
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-08-27 14:57 UTC · commit `acefd3e` · build client **6**
+- Horodatage : 2026-08-27 14:59 UTC · commit `aecddab` · build client **6**
 - Assertions de test : **186** dans 15 fichiers d'intégration (+ 18 tests unitaires de domaine)
 - Migration locale la plus récente : **22_qa_set_config** · réellement présente sur le cloud (sondée) : **22**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
@@ -52,6 +52,14 @@ BUG-012 (la réécriture 011 d'open_window avait PERDU la garde de durée max �
 migration 018 qui rend le deny-by-default RÉEL (profil d'autrui, présence d'autrui et
 app_config fermés en lecture directe ; l'âge arrive calculé du serveur, la DOB exacte ne sort
 plus ; qa_admin_emails ne fuit plus). Reste de l'audit : au Radar.
+Et dans la nuit du 27 au 28.08 : LE BUSY (§11 — pendant mon round je ne peux ni démarrer ni
+alimenter une autre conversation ; je sors des présences pour les nouvelles personnes ; la
+CAUSE n'est jamais exposée ; deux paramètres séparés) · l'UNDO du retrait d'étincelle (10 s,
+l'étincelle d'origine est restaurée) · le COOLDOWN DE PAIRE réel (60 min sans lien, refus
+littéralement identique à tous les autres refus — testé contre un refus de filtre) · la
+DYNAMIQUE DES LIENS (se reparler sans re-étinceler, liens en tête des présences, exemption du
+busy ; le réveil par notification reste NON codé) · et le LEVIER DE CONFIG (changer les
+valeurs en direct depuis le State Lab, chaque changement tracé).
 
 ## 3 · NON CONSTRUIT
 
@@ -103,7 +111,45 @@ incohérence constitutionnelle, une perte de données, un blocage total des test
 
 round 10 min · rooms simultanées max 2 · 5 étincelles/fenêtre · horizon 6 h · 2 fenêtres max ·
 heartbeat 30 s. Tous en `app_config`, départage par simulation (6 scénarios écrits, attendus
-côté simulation) et par le pilote.
+côté simulation) et par le pilote. Depuis le 27.08 nuit, ils se changent EN DIRECT depuis le
+State Lab (`qa_set_config`, allowlist, chaque changement tracé) : plus besoin de redéployer
+pour tester une valeur. Nouvelles clés : `spark_undo_seconds` 10 · `pair_cooldown_minutes` 60
+· `max_active_speed_rounds` 1 · `max_open_live_conversations` 2 (remplace max_live_rooms) ·
+`links_rekindle_enabled` true · `links_first_in_discovery` true.
+
+## 6bis · CE QUI ATTEND TON CHALLENGE EN PRIORITÉ (27.08 nuit — 5 hypothèses fraîches, codées mais NON validées)
+
+Elles sont codées pour être TESTABLES, pas parce qu'elles sont tranchées. Chacune est
+réversible par un paramètre. Attaque-les une par une (garde/vire, et pourquoi) :
+
+1. **H-BUSY-1** — étinceler quelqu'un qui est en plein speed chat PASSE (l'étincelle est
+   discrète : aucun push, aucun compteur). Le BUSY protège les conversations, pas la boîte à
+   étincelles. Contre-thèse à évaluer : ça crée une pile d'étincelles qu'on découvre après.
+2. **H-BUSY-2** — si l'AUTRE est occupé, mon message part quand même et le round démarre
+   PARESSEUSEMENT au message suivant, quand les deux sont libres. C'est le prix de l'anti-oracle
+   (jamais dire « elle est occupée »). Contre-thèse : la personne écrit dans le vide sans
+   comprendre pourquoi rien ne démarre. Y a-t-il une formulation honnête qui n'informe pas
+   sur l'autre ? (« le round démarrera quand vous serez tous les deux disponibles » dit-il
+   trop ?)
+3. **H-BUSY-3** — pendant son round, une personne sort des présences pour les NOUVELLES
+   personnes seulement ; ses créneaux futurs, ses étincelles en cours et ses LIENS restent
+   visibles. Le périmètre est-il le bon ? Une disparition/réapparition répétée est-elle
+   elle-même un signal exploitable par un observateur qui rafraîchit ?
+4. **H-LINK-1/2** — un LIEN permet de rouvrir une conversation SANS re-étinceler et saute le
+   cooldown de 60 min ; il exempte aussi du BUSY. Garde-fou posé : le lien ne donne accès
+   qu'à ce que la présence donnerait de toute façon, et se rompt des deux côtés en silence.
+   Est-ce que « le lien est une permission permanente d'écrire » affaiblit l'invariant 2
+   (aucun message sans réciprocité) ? Nous pensons que non (la réciprocité est ACQUISE), mais
+   c'est exactement le genre de glissement qui fabrique une messagerie asynchrone déguisée.
+5. **CONFLIT OUVERT, tranché par personne** — le mandat §13 demande des cooldowns PROGRESSIFS
+   (retirer/renvoyer coûte de plus en plus cher) ; V3-018, validée au tri du Radar, dit
+   « aucun étage de cooldowns ». Les deux ne peuvent pas être vrais. Quel est le coût réel de
+   chaque branche pour une femme harcelée d'un côté, pour un utilisateur normal de l'autre ?
+
+Et une question de méthode, pas de produit : **le BUSY se mesure-t-il honnêtement avec des
+bots ?** Nous avons une ville simulée qui joue par les vraies fonctions ; mon propre challenge
+du matin disait « ce mécanisme est invisible à trois testeurs ». Je l'ai codé quand même parce
+que la ville permet de l'observer. Est-ce un raisonnement valide ou une auto-justification ?
 
 ## 7 · RISQUES CONNUS (on ne se ment pas)
 
@@ -111,6 +157,18 @@ côté simulation) et par le pilote.
 atteint (jamais rattrapée, TODO assumé). · Anti-multi-comptes : email seul = FAIBLE (réduit,
 pas empêché — chantier hérité Q-05). · Anti-oracle par timing : non mesuré (P1). ·
 Report + suppression de compte absents (P0 avant externe).
+
+**Deux écarts avec nos propres règles de fondation, mesurés le 27.08 nuit (personne ne nous
+les a demandés, on les publie quand même)** : ① la règle 8 dit « les 66 tests d'invariants
+hérités = la suite de naissance » — il y en a **18**, pas 66. Les invariants V2 n'ont jamais
+été portés en bloc ; ce sont les 186 assertions d'intégration serveur qui font le travail, et
+elles couvrent le comportement, pas la liste héritée. ② La règle 8 dit aussi « danger anticipé
+→ test rouge → code → test vert » : cette nuit les tests ont été écrits APRÈS le code (ils
+sont passés du premier coup, ce qui prouve moins qu'un test qu'on a vu échouer). Un seul
+garde-fou a réellement mordu au rouge : l'auto-check anti-coordonnées de la migration 016,
+qui a refusé ma propre migration. ③ Enfin `MapLeaflet.tsx` (758 lignes, hérité) contient
+plusieurs `catch {}` silencieux — sur de l'affichage de carte, mais la règle 4 ne fait pas
+d'exception écrite.
 
 ## 8 · DELTA v1.4 — LE TRI DU RADAR V4 EST FAIT (26.08)
 Les réponses GPT (parties 1-3) + commentaires David ont été triées sur pièces : voir RADAR.md
