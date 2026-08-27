@@ -1,11 +1,11 @@
 # PACK CONTRADICTEURS — CLUTCH V3 · v1.5 · 27.08.2026 (nuit)
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-08-27 16:58 UTC · commit `2846a0a` · build client **6**
-- Assertions de test : **186** dans 15 fichiers d'intégration (+ 18 tests unitaires de domaine)
-- Migration locale la plus récente : **22_qa_set_config** · réellement présente sur le cloud (sondée) : **22**
+- Horodatage : 2026-08-27 21:55 UTC · commit `f1c568d` · build client **6**
+- Assertions de test : **200** dans 16 fichiers d'intégration (+ 18 tests unitaires de domaine)
+- Migration locale la plus récente : **24_niveau_de_migration** · réellement présente sur le cloud (sondée) : **24**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
-- **CODE DE LECTURE : `FANION-2846a0a`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
+- **CODE DE LECTURE : `ARDOISE-f1c568d`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
 > décisions historiques, /hq, /scenario, app /app2…) est de l'HISTORIQUE ou du V2 CLASSIC.
@@ -173,6 +173,38 @@ verdict acquis est méthodologique (une simulation d'un produit temporel doit fa
 horloge, sinon tout état transitoire devient permanent, et le faux résultat est CRÉDIBLE parce
 qu'il est reproductible). **Question au contradicteur : quel protocole rendrait cette question
 décidable autrement que par l'observation d'humains ?**
+
+## 6ter · L'AUDIT 014→022 A ÉTÉ JOUÉ (27.08 nuit) : 3 FAILLES SUR 7 ATTAQUES
+
+Tout ce qui a été construit après la migration 013 n'avait jamais été attaqué. Ça l'a été,
+et cette fois les attaques sont EXÉCUTABLES (`tests/integration/audit-014-022-server.mjs`) :
+cet audit ne se relit pas, il se relance.
+
+**Trouvé et fermé le soir même :**
+① La ville simulée DÉBORDAIT sur les vrais gens : `is_qa` était un drapeau posé à la
+fondation que personne ne lisait, donc une testeuse voyait 7 bots dans ses présences et
+pouvait leur envoyer une étincelle. Une soirée de test avec des amis aurait été polluée de
+faux profils. ② Un LIEN contournait le geste « masquer » : la personne masquée pouvait
+rouvrir une conversation qui réapparaissait dans le Chat de celle qui l'avait masquée.
+③ Le levier de config pouvait modifier SA PROPRE allowlist (l'admin s'élargissait depuis
+l'app, sans migration ni revue) et bloquer toute la flotte avec un chiffre de trop.
+
+**Deux aveux qui valent plus que les trois failles :**
+· Au premier passage, l'attaque ① était VERTE. Non parce que le code filtrait, mais parce que
+le hasard avait semé les bots dans d'autres villes et que le filtre géographique les cachait.
+Il a fallu forcer un bot au même endroit que l'humaine pour voir le trou. **Un test qui passe
+pour de mauvaises raisons est plus dangereux qu'un test absent.** Deux autres assertions
+étaient fausses elles-mêmes (elles interrogeaient une fonction avec le service role, donc sans
+identité : la réponse était « non authentifié » et l'assertion validait du vide).
+· Mon correctif a CASSÉ la ville dans la foulée (les bots ne se voyaient plus entre eux, zéro
+étincelle), attrapé en dix minutes par la suite de tests. La règle juste n'était pas « les
+bots sont invisibles » mais « le laboratoire est visible du laboratoire ».
+
+**Ce que l'audit ne prouve toujours pas, et qu'on te soumet :** le canal d'inférence du BUSY
+reste ouvert et semble structurel. Quelqu'un qui note l'horaire annoncé d'une personne et
+rafraîchit peut constater sa disparition AVANT la fin annoncée : la cause n'est pas exposée
+(round, masquage ou annulation sont indistinguables), mais la disparition l'est. On ne sait
+pas fermer ça sans mentir sur les horaires. **Y a-t-il une sortie qu'on ne voit pas ?**
 
 ## 7 · RISQUES CONNUS (on ne se ment pas)
 
