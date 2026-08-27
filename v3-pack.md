@@ -1,7 +1,7 @@
-# PACK CONTRADICTEURS — CLUTCH V3 · v1.4 · 26.08.2026
+# PACK CONTRADICTEURS — CLUTCH V3 · v1.5 · 27.08.2026 (nuit)
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-08-27 14:59 UTC · commit `aecddab` · build client **6**
+- Horodatage : 2026-08-27 15:00 UTC · commit `9ec12e0` · build client **6**
 - Assertions de test : **186** dans 15 fichiers d'intégration (+ 18 tests unitaires de domaine)
 - Migration locale la plus récente : **22_qa_set_config** · réellement présente sur le cloud (sondée) : **22**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
@@ -85,7 +85,11 @@ Statuts : **OUVERTE** (personne n'a tranché) · **DÉCIDÉE-NON-CODÉE** · **C
 | Réf | Sujet | Statut | Détail |
 |---|---|---|---|
 | Q2 | découverte croisée même en mode discuter | **CODÉE** | David 27.08 ; migration 011, 10 tests |
-| Q5 | re-parler après une fin | **DÉCIDÉE-NON-CODÉE** | lien mutuel → tout de suite ; sinon 60 min, cause jamais révélée |
+| Q5 | re-parler après une fin | **CODÉE** | 27.08 nuit, migration 020 : lien mutuel → tout de suite ; sinon `pair_cooldown_minutes` (60), refus identique à tous les autres |
+| §11 | BUSY / attention | **CODÉE (3 hypothèses à valider)** | 27.08 nuit, migration 019 — voir §6bis |
+| §13 | undo du retrait | **CODÉE** | 10 s, l'étincelle d'origine est restaurée |
+| §13bis | cooldowns PROGRESSIFS | **CONFLIT NON TRANCHÉ** | le mandat les demande, V3-018 les interdit — personne n'a arbitré |
+| Q4③ | le réveil des liens (notification) | **OUVERTE** | ① et ② codés ; ③ exige les push et une décision |
 | H1 | temps commun qui finit pendant le round | **OUVERTE** | le code fait A ; B (round impossible sous un minimum) reste à voter |
 | H2 | messages avant la première réponse | **OUVERTE** | illimité aujourd'hui ; « 1 seul » proposé, jamais voté |
 | H3 | vote « continuer » rétractable | **DÉCIDÉE (statu quo)** | David 25.08 en test : il reste posé. GPT le donne pour « convergé rétractable » : c'est FAUX |
