@@ -1,9 +1,9 @@
 # PACK CONTRADICTEURS — CLUTCH V3 · v1.4 · 26.08.2026
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-08-27 09:58 UTC · commit `eadf683` · build client **6**
-- Assertions de test : **108** dans 10 fichiers d'intégration (+ 10 tests unitaires de domaine)
-- Migration locale la plus récente : **14_prolonger_creneau** · réellement présente sur le cloud (sondée) : **14**
+- Horodatage : 2026-08-27 10:22 UTC · commit `95e0f52` · build client **6**
+- Assertions de test : **117** dans 11 fichiers d'intégration (+ 10 tests unitaires de domaine)
+- Migration locale la plus récente : **15_la_ville** · réellement présente sur le cloud (sondée) : **15**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` de David.
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
