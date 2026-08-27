@@ -2,3 +2,25 @@
 # (à rouvrir au lancement public)
 User-agent: *
 Disallow: /
+
+# ── EXCEPTION du 27.08.2026 : le PACK CONTRADICTEURS ────────────────────────────────
+# Le pack (/v3-pack.md) existe pour être lu par des IA contradictrices quand un humain de
+# l'équipe leur colle le lien. Or « Disallow: / » ci-dessus faisait refuser cette lecture
+# aux agents qui respectent robots.txt (c'est le cas de celui de ChatGPT).
+# On ouvre donc CE SEUL FICHIER, et uniquement aux agents déclenchés PAR UN HUMAIN
+# (lecture à la demande). Les robots d'INDEXATION et d'ENTRAÎNEMENT (GPTBot, OAI-SearchBot,
+# ClaudeBot, Googlebot, Bingbot…) restent bloqués par la règle « * » ci-dessus : rien de
+# Clutch n'entre dans un index public avant le lancement.
+# Pour refermer : supprimer les trois blocs ci-dessous.
+
+User-agent: ChatGPT-User
+Allow: /v3-pack.md
+Disallow: /
+
+User-agent: Claude-User
+Allow: /v3-pack.md
+Disallow: /
+
+User-agent: Perplexity-User
+Allow: /v3-pack.md
+Disallow: /
