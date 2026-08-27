@@ -1,10 +1,10 @@
 # PACK CONTRADICTEURS — CLUTCH V3 · v1.4 · 26.08.2026
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-08-27 10:22 UTC · commit `95e0f52` · build client **6**
-- Assertions de test : **117** dans 11 fichiers d'intégration (+ 10 tests unitaires de domaine)
-- Migration locale la plus récente : **15_la_ville** · réellement présente sur le cloud (sondée) : **15**
-- Si ces deux nombres diffèrent, le cloud attend un `supabase db push` de David.
+- Horodatage : 2026-08-27 12:47 UTC · commit `736d25f` · build client **6**
+- Assertions de test : **143** dans 12 fichiers d'intégration (+ 18 tests unitaires de domaine)
+- Migration locale la plus récente : **18_audit_portes_rest** · réellement présente sur le cloud (sondée) : **18**
+- Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
 > décisions historiques, /hq, /scenario, app /app2…) est de l'HISTORIQUE ou du V2 CLASSIC.
@@ -42,6 +42,16 @@ de continuer (irréversible, invisible de l'autre — testé) ; OUI+OUI → `ope
 (V3-014) et sinon résolution à l'échéance ; toute autre fin est neutre ; mort par
 l'horloge SERVEUR (résolution paresseuse, aucun client requis) ; « terminer » à tout moment.
 Les conversations fermées restent en base, l'UI ne montre que 48 h (question H6).
+Depuis le 27.08 soir : moments humains = raccourcis qui pré-remplissent la molette (V3-028) ·
+prolonger un créneau sans tuer ses conversations (V3-029) · rendez-vous de chat (une mutuelle
+avant l'heure crée une conversation PROGRAMMÉE qui s'ouvre seule, V3-026) · LA VILLE simulée
+(bots à caractère via les vraies fonctions, V3-031) · LE STATE LAB /dev/state-lab (tout l'état
+de la ville en un écran filtrable, allowlist, V3-032) · et L'AUDIT ADVERSARIAL JOUÉ en partie :
+BUG-012 (la réécriture 011 d'open_window avait PERDU la garde de durée max — un créneau de
+200 h passait), BUG-013 (QUOTA après les refus neutres = oracle sur l'autre, I-16), et la
+migration 018 qui rend le deny-by-default RÉEL (profil d'autrui, présence d'autrui et
+app_config fermés en lecture directe ; l'âge arrive calculé du serveur, la DOB exacte ne sort
+plus ; qa_admin_emails ne fuit plus). Reste de l'audit : au Radar.
 
 ## 3 · NON CONSTRUIT
 
