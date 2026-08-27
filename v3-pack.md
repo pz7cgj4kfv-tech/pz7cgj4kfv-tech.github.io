@@ -156,6 +156,24 @@ bots ?** Nous avons une ville simulée qui joue par les vraies fonctions ; mon p
 du matin disait « ce mécanisme est invisible à trois testeurs ». Je l'ai codé quand même parce
 que la ville permet de l'observer. Est-ce un raisonnement valide ou une auto-justification ?
 
+**PREMIÈRE MESURE, ET CE QU'ELLE A COÛTÉ EN CRÉDIBILITÉ (27.08 nuit, `scripts/mesure-busy.mjs`)**
+La même question a reçu QUATRE réponses successives, toutes fausses sauf la dernière :
+① « ça ne coûte rien » (60 bots) : faux, seules 9 conversations étaient nées et presque
+personne n'avait deux conversations à la fois, donc le mécanisme n'a jamais été exercé.
+② « ça tient », puis dix minutes plus tard « ça coûte » : un tirage unique d'un monde
+aléatoire raconte le hasard. ③ « ça coûte 7 à 10 points », sur trois tirages concordants,
+donc apparemment solide : **faux aussi**, et c'est le plus instructif. Tous les ticks
+tombaient dans la même seconde réelle ; un round dure 10 minutes, donc aucun round ne se
+terminait jamais : un bot qui commençait une conversation restait « occupé » jusqu'à la fin
+du monde. On mesurait un blocage permanent que le produit ne fabrique pas.
+④ Horloge avancée de 5 min par tick (2 h de soirée simulée), 3 tirages : **+14, 0, −6 points.
+Aucun effet détectable, et la mesure ne tranche pas.**
+Ce qu'on en retient et qu'on te soumet : H-BUSY-2 n'est ni validée ni réfutée ; le seul
+verdict acquis est méthodologique (une simulation d'un produit temporel doit faire avancer son
+horloge, sinon tout état transitoire devient permanent, et le faux résultat est CRÉDIBLE parce
+qu'il est reproductible). **Question au contradicteur : quel protocole rendrait cette question
+décidable autrement que par l'observation d'humains ?**
+
 ## 7 · RISQUES CONNUS (on ne se ment pas)
 
 **BUG-002 : CORRIGÉ le 25.08 au soir** (migration 007, 5 tests). · Mutuelle sans conversation possible quand le plafond est
