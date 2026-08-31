@@ -1,11 +1,11 @@
-# PACK CONTRADICTEURS — CLUTCH V3 · v1.5 · 27.08.2026 (nuit)
+# PACK CONTRADICTEURS — CLUTCH V3 · v1.6 · 31.08.2026 (soir)
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-08-27 21:55 UTC · commit `f1c568d` · build client **6**
-- Assertions de test : **200** dans 16 fichiers d'intégration (+ 18 tests unitaires de domaine)
-- Migration locale la plus récente : **24_niveau_de_migration** · réellement présente sur le cloud (sondée) : **24**
+- Horodatage : 2026-08-31 21:12 UTC · commit `43c870e` · build client **26**
+- Assertions de test : **307** dans 23 fichiers d'intégration (+ 27 tests unitaires de domaine)
+- Migration locale la plus récente : **42_trois_occasions_trois_chats** · réellement présente sur le cloud (sondée) : **42**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
-- **CODE DE LECTURE : `ARDOISE-f1c568d`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
+- **CODE DE LECTURE : `ORAGE-43c870e`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
 > décisions historiques, /hq, /scenario, app /app2…) est de l'HISTORIQUE ou du V2 CLASSIC.
@@ -224,6 +224,30 @@ garde-fou a réellement mordu au rouge : l'auto-check anti-coordonnées de la mi
 qui a refusé ma propre migration. ③ Enfin `MapLeaflet.tsx` (758 lignes, hérité) contient
 plusieurs `catch {}` silencieux — sur de l'affichage de carte, mais la règle 4 ne fait pas
 d'exception écrite.
+
+## 8quater · DELTA v1.6 — DEUX TESTS LIVE DAVID×MEL + LES 7 PROCÈS TRANCHÉS (31.08)
+Ce qui a changé depuis la v1.5, sur pièces (tout est dans `docs/LOIS-DU-COEUR.md`, le
+document central des lois étincelle/mutuelle/chat, une ligne par loi, statut 🟢/🧪/⚪) :
+- **Procès tranchés par David (+Mel)** : porte silencieuse après 2 étincelles ignorées par
+  direction (`spark_ignored_max=2`) · la mutuelle SURVIT 3 occasions (`mutual_carry_max=3`,
+  72 h par cycle) · quitter consomme la chance dans les deux sens pour le créneau · mots de
+  sortie suggérés jamais bloquants · 3 conversations vivantes max · écran quasi-éphémère
+  (rétention base pour la sécurité à câbler) · la fraîcheur d'activité n'est JAMAIS montrée
+  aux autres (« Clutch doit savoir ; les gens, non »).
+- **PIVOT REPRISE (décision David+Mel en test)** : la mutuelle portée ne rouvre JAMAIS
+  l'ancienne conversation, aucun historique (« stalking ») ; la personne réapparaît en
+  Présence, tout repasse par un premier message. Retrait de son étincelle d'une mutuelle :
+  décidé, à coder. Détail : `docs/FOURNEE-TEST-FINAL-31aug.md`.
+- **Brique 1 du composeur** livrée : départ verrouillé « maintenant », fins admissibles sur
+  heures propres (domaine pur testé aux bords), lieu verrouillé, rayon 3-30 km, âges à
+  molettes (écart min 5 ans), défaut d'intention 💬, GPS réparé (la clé Info.plist manquait
+  depuis toujours — aucun build TestFlight n'a jamais eu le GPS avant le 26).
+- **Faille produit OUVERTE trouvée en test** (à challenger en priorité) : une réponse
+  tardive au premier message fait démarrer le speed chat et CONFISQUE l'écran de l'autre
+  une heure plus tard, potentiellement en plein autre chat. Aucune réponse choisie.
+- Build client 26 (web + TestFlight), migrations 035→042 poussées (départ déplaçable,
+  centre obligatoire, signalement qui gèle les messages, coordonnées arrondies à la source,
+  brique 1, rayon min, D10, portage ×3).
 
 ## 8 · DELTA v1.4 — LE TRI DU RADAR V4 EST FAIT (26.08)
 Les réponses GPT (parties 1-3) + commentaires David ont été triées sur pièces : voir RADAR.md
