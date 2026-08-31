@@ -1,11 +1,11 @@
-# PACK CONTRADICTEURS — CLUTCH V3 · v1.6 · 31.08.2026 (soir)
+# PACK CONTRADICTEURS — CLUTCH V3 · v1.7 · 01.09.2026 (aube)
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-08-31 21:12 UTC · commit `43c870e` · build client **26**
-- Assertions de test : **307** dans 23 fichiers d'intégration (+ 27 tests unitaires de domaine)
-- Migration locale la plus récente : **42_trois_occasions_trois_chats** · réellement présente sur le cloud (sondée) : **42**
+- Horodatage : 2026-08-31 22:05 UTC · commit `d63208e` · build client **28**
+- Assertions de test : **336** dans 26 fichiers d'intégration (+ 27 tests unitaires de domaine)
+- Migration locale la plus récente : **46_depart_du_round_v2** · réellement présente sur le cloud (sondée) : **46**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
-- **CODE DE LECTURE : `ORAGE-43c870e`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
+- **CODE DE LECTURE : `BOUSSOLE-d63208e`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
 > décisions historiques, /hq, /scenario, app /app2…) est de l'HISTORIQUE ou du V2 CLASSIC.
@@ -224,6 +224,23 @@ garde-fou a réellement mordu au rouge : l'auto-check anti-coordonnées de la mi
 qui a refusé ma propre migration. ③ Enfin `MapLeaflet.tsx` (758 lignes, hérité) contient
 plusieurs `catch {}` silencieux — sur de l'affichage de carte, mais la règle 4 ne fait pas
 d'exception écrite.
+
+## 8quinquies · DELTA v1.7 — LE DÉPART DU ROUND V2 EST CODÉ (nuit 31.08→01.09)
+La faille « une réponse tardive confisque l'écran » a été instruite (challenge GPT →
+tri → contre-tri → votes David V1-V4) et TRANCHÉE : le round ne démarre plus jamais du
+seul fait d'écrire. Écrire ARME celui qui écrit (il est là) ; « ▶️ On y va » arme
+l'autre ; départ ATOMIQUE quand les deux présences sont fraîches (`room_ready_fresh_
+seconds=25` 🧪), entretenues par heartbeat — partir rassit tout seul (correction GPT
+acceptée : un jeton de 5 min recréait le bug). La readiness de l'autre n'est JAMAIS
+exposée ; résidu d'oracle assumé et tracé. Aussi codé cette nuit (migrations 043-046,
+31 assertions neuves) : round raté = mutuelle morte + portage épuisé + la paire SORT du
+créneau (hides) · « garder le lien » seulement après OUI+OUI (`opened_at`) · un seul
+créneau (`max_windows=1`) · anti-flood (`max_consecutive_messages=30` 🧪) · messages
+croisés = échange · limite ~ affichage temps approximatif. EN CONFLIT OUVERT (vote à
+trois attendu) : le retrait d'étincelle vu par l'autre (instinct David au test) VS la loi
+anti-oracle 027 votée. Dossiers : docs/TRI-SPEED-CHAT-V2-01sep.md · FOURNEE-TEST-2/3.
+Amendement constitutionnel PROPOSÉ (non appliqué, degré 1) : « aucun fil asynchrone »
+au lieu de « aucune messagerie asynchrone ».
 
 ## 8quater · DELTA v1.6 — DEUX TESTS LIVE DAVID×MEL + LES 7 PROCÈS TRANCHÉS (31.08)
 Ce qui a changé depuis la v1.5, sur pièces (tout est dans `docs/LOIS-DU-COEUR.md`, le
