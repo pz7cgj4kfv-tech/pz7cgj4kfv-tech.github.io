@@ -1,1 +1,1 @@
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"cockpit","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"Wdi9-jpvO6Tqgpt-lKgxO"}
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"cockpit","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"_66hM6PF16MxxJLo8aaUU"}
