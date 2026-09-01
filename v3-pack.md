@@ -1,11 +1,11 @@
-# PACK CONTRADICTEURS — CLUTCH V3 · v1.7 · 01.09.2026 (aube)
+# PACK CONTRADICTEURS — CLUTCH V3 · v1.8 · 01.09.2026 (nuit)
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-08-31 22:05 UTC · commit `d63208e` · build client **28**
-- Assertions de test : **336** dans 26 fichiers d'intégration (+ 27 tests unitaires de domaine)
-- Migration locale la plus récente : **46_depart_du_round_v2** · réellement présente sur le cloud (sondée) : **46**
+- Horodatage : 2026-09-01 00:17 UTC · commit `b940eeb` · build client **32**
+- Assertions de test : **342** dans 27 fichiers d'intégration (+ 27 tests unitaires de domaine)
+- Migration locale la plus récente : **53_moderation_allumee** · réellement présente sur le cloud (sondée) : **53**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
-- **CODE DE LECTURE : `BOUSSOLE-d63208e`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
+- **CODE DE LECTURE : `ORAGE-b940eeb`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
 > décisions historiques, /hq, /scenario, app /app2…) est de l'HISTORIQUE ou du V2 CLASSIC.
@@ -224,6 +224,26 @@ garde-fou a réellement mordu au rouge : l'auto-check anti-coordonnées de la mi
 qui a refusé ma propre migration. ③ Enfin `MapLeaflet.tsx` (758 lignes, hérité) contient
 plusieurs `catch {}` silencieux — sur de l'affichage de carte, mais la règle 4 ne fait pas
 d'exception écrite.
+
+## 8sexies · DELTA v1.8 — PHOTOS, MODÉRATION ALLUMÉE, NOTIFICATIONS, ANIMATIONS (01.09)
+Builds 29→32, migrations 047→053, tout poussé et sondé :
+- **PHOTOS DE PROFIL** : une principale (upload verrouillé équipe), visages déterministes
+  sur TOUS les bots (prénom accordé au genre — bug 032 corrigé), fiche profil au tap.
+- **MODÉRATION PHOTO ALLUMÉE** : pipeline V2 porté tel quel (tolérance zéro, fail-closed,
+  journal), fonction déployée, clé posée (saga des types de clés console 2026 : les clés
+  « Personnel » exigent un workspace-id ; une clé « Espace de travail » créée DANS
+  Default fonctionne sans), chaîne PROUVÉE verdict ok sur portrait réel.
+- **PIÈCE NOTIFICATIONS née** : OneSignal app « Clutch V3 » créée (bundle app.clutch.v3),
+  secrets posés, send-push déployée, entitlements APNs, init au login, INVITATION push
+  vague quand la réponse part et que l'autre est absent. Premier test push : en attente
+  de l'app ouverte sur le téléphone de David.
+- **V4 vraiment appliqué** (048) : UN message chacun avant le round, testé.
+- **Dynamique visuelle v1** : l'ÉCLAIR du démarrage (arc électrique « LE COURANT
+  PASSE »), l'onde OUI+OUI, le battement des secondes · « 💬 Réponds-lui ! » en Présence ·
+  prompt créatif GPT prêt (7 moments, panel imposé).
+- **La CARTE DES IDÉES V2** dressée en deux parties (algo + tout le reste, ~340 idées
+  inventoriées avec auteurs et sources) — rien n'était perdu.
+- Profil épuré (préférences → créneau, décision David) · molette d'édition véridique.
 
 ## 8quinquies · DELTA v1.7 — LE DÉPART DU ROUND V2 EST CODÉ (nuit 31.08→01.09)
 La faille « une réponse tardive confisque l'écran » a été instruite (challenge GPT →
