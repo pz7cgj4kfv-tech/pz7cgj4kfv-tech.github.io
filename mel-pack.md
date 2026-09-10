@@ -133,12 +133,18 @@ Apple publie des minimums. Trois nous concernent, et ils ne sont pas une questio
 | Ce que c'est | Le minimum d'Apple |
 |---|---|
 | Un texte, n'importe lequel | **jamais sous 11** (et 17 pour un texte qu'on lit vraiment) |
-| Tout ce qu'un doigt touche | **44 par 44**, même quand le dessin est plus petit |
+| Tout ce qu'un doigt touche | **44 par 44** visé, même quand le dessin est plus petit |
 | Un texte sur son fond | **4,5 pour 1** de contraste (3 pour 1 pour ce qui n'est pas du texte) |
 
 Le troisième chiffre est le plus souple à tenir : la zone qu'on touche peut être invisible et plus
 grande que le rond dessiné. Ton petit bouton reste petit à l'œil, il devient juste plus facile à
 attraper. C'est ce que David faisait déjà d'instinct avec le curseur de distance.
+
+**Honnêteté sur le 44** (corrigé le 10.09 après relecture par deux IA qui se contredisent) : Apple
+écrit 44 sur sa page des boutons, mais une autre de ses pages parle d'un plancher plus bas, autour
+de 28, dans certains contextes. Aucun des deux n'est une règle qui fait refuser une app. On vise 44
+parce que c'est le chiffre le plus souvent publié et que ça ne coûte rien, pas parce qu'on serait
+hors la loi à 30. Tu n'as donc aucune contrainte de dessin ici : c'est la zone invisible qui grandit.
 
 **Ce que ça change chez toi, concrètement.** Dans ta carte de présence, l'âge à côté du prénom est
 à 8,8. C'est le plus petit texte de toute l'application, et il vient de l'export de ta planche.
