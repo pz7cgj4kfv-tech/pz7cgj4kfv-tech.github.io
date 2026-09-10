@@ -126,6 +126,36 @@ grands » · vous ouvrez l'app plus de six fois dans l'heure sans raison · le m
 Le canevas avec les écrans dessinés :
 https://claude.ai/code/artifact/85591e54-007a-4409-9cc9-953f1ad0fbb2
 
+## 4 bis · LES TROIS CHIFFRES D'APPLE (nouveau, 10.09, et ça touche ta planche)
+
+Apple publie des minimums. Trois nous concernent, et ils ne sont pas une question de goût.
+
+| Ce que c'est | Le minimum d'Apple |
+|---|---|
+| Un texte, n'importe lequel | **jamais sous 11** (et 17 pour un texte qu'on lit vraiment) |
+| Tout ce qu'un doigt touche | **44 par 44**, même quand le dessin est plus petit |
+| Un texte sur son fond | **4,5 pour 1** de contraste (3 pour 1 pour ce qui n'est pas du texte) |
+
+Le troisième chiffre est le plus souple à tenir : la zone qu'on touche peut être invisible et plus
+grande que le rond dessiné. Ton petit bouton reste petit à l'œil, il devient juste plus facile à
+attraper. C'est ce que David faisait déjà d'instinct avec le curseur de distance.
+
+**Ce que ça change chez toi, concrètement.** Dans ta carte de présence, l'âge à côté du prénom est
+à 8,8. C'est le plus petit texte de toute l'application, et il vient de l'export de ta planche.
+Cinq autres textes sont à 10, le badge de la barre du bas à 9,5. Aucun n'est illisible, tous sont
+sous le plancher d'Apple. Côté boutons, le chevron de retour du chat fait 34, et trois boutons de
+la feuille « Se voir ? » sont à 28, 30 et 34.
+
+**David a donné carte blanche pour tout remonter au minimum.** Donc la question 5 plus bas n'est
+plus vraiment une question sur ce point précis : le plancher est fixé par Apple, pas par nous. Ce
+qui reste à toi, et qui compte : **où on prend la place** quand un texte grandit de 8,8 à 11 dans
+une carte dessinée au pixel près. On te montre l'avant et l'après de chaque carte avant de garder
+quoi que ce soit.
+
+**Pourquoi ça compte maintenant.** Apple publie une liste de motifs fréquents de refus, et l'un
+d'eux s'appelle « interface insuffisante ». Ce n'est pas le goût qui est jugé, c'est le soin. On ne
+veut pas dépenser la seule relecture complète d'Apple là-dessus.
+
 ## 5 · LES SEPT QUESTIONS QUI SONT À TOI (rien n'est codé tant que tu n'as pas répondu)
 
 Chacune contredit une de tes décisions ou touche ta charte. Personne ne les tranchera à ta place.
@@ -208,7 +238,7 @@ Estimation honnête, avec marge : une semaine et demie de code pour tout, pas mo
 **Ce qu'on attend de toi, en une ligne :** réponds aux sept questions du §5, dans l'ordre, même par
 un mot chacune. Tout le reste peut attendre.
 
-_Version du 10.09.2026, mise à jour en fin de matinée (la bande de photos du Profil a été codée
+_Version du 10.09.2026, mise à jour en début d'après-midi (les trois chiffres d'Apple, §4 bis) (la bande de photos du Profil a été codée
 entre-temps). Régénéré à chaque changement. Les documents complets derrière ce résumé :
 le dossier graphique (41 surfaces écran par écran), le tri des deux challenges, le contrat de la
 page Profil. Demande-les si tu veux le détail._
