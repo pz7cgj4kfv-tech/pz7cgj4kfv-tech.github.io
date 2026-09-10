@@ -199,14 +199,15 @@ David a tranché dans la journée et c'est déjà codé : une personne peut écr
 Ce que ça fait à ton dessin, exactement :
 - **Ton SVG de 340 × 70 n'a pas été touché.** La phrase est posée en dessous, hors du SVG.
 - Elle est en gris à 11,5 px, entre guillemets français, sur une seule ligne, coupée par des points
-  de suspension si elle dépasse. Elle démarre à 21,5 % de la largeur, c'est à dire alignée sous la
-  colonne de texte et non sous la photo.
+  de suspension si elle dépasse. **Elle court sous toute la carte, photo comprise**, et pas seulement
+  sous la colonne de texte. C'est le seul dessin possible : alignée sous le prénom, elle ne tenait que
+  47 signes alors que 60 sont autorisés, et une envie sur trois se serait fait couper en silence.
 - **Une carte sans envie garde exactement la hauteur qu'elle avait.** Rien ne bouge dans ce cas.
 - Le chiffre de 60 signes vient d'une mesure, pas d'une intuition : dans la colonne de texte de ton
   SVG (260 px), seuls 50 signes tiennent à 10 px. C'est pour ça que la ligne est passée en dessous.
-- Un détail que je signale parce que c'est ta charte : le gris utilisé est `#706F6F`, le tien est
-  `#6F6F6E`. Invisible à l'œil, mais c'est une couleur écrite à la main au lieu d'être prise dans ta
-  palette, exactement le défaut décrit à l'alerte 2. C'est signalé à la session qui l'a codé.
+- Le gris de cette ligne est celui de ton prénom, pris dans ta palette. Les trois couleurs écrites à
+  la main qui restent dans cette carte (le gris du prénom, le gris du glyphe de genre, le vert des
+  heures) sont ta propre spec : elles comptent dans l'alerte 2, mais les changer est ta décision.
 
 Si cette ligne sous ta carte ne te va pas, c'est le moment de le dire : elle vient de naître.
 
