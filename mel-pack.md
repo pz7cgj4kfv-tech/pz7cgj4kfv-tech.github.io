@@ -162,7 +162,7 @@ quoi que ce soit.
 d'eux s'appelle « interface insuffisante ». Ce n'est pas le goût qui est jugé, c'est le soin. On ne
 veut pas dépenser la seule relecture complète d'Apple là-dessus.
 
-## 5 · LES SEPT QUESTIONS QUI SONT À TOI (rien n'est codé tant que tu n'as pas répondu)
+## 5 · LES HUIT QUESTIONS QUI SONT À TOI (rien n'est codé tant que tu n'as pas répondu)
 
 Chacune contredit une de tes décisions ou touche ta charte. Personne ne les tranchera à ta place.
 
@@ -184,32 +184,58 @@ Chacune contredit une de tes décisions ou touche ta charte. Personne ne les tra
    plutôt qu'en aplat prune pour ne pas voler l'accent au bouton d'ouverture de créneau ·
    l'identité (prénom, âge, genre) alignée à gauche AU-DESSUS de la bande. C'est modifiable en
    une heure, dis simplement ce qui te gêne.
-7. **Une commande** : l'icône de l'Étincelle, le geste central de l'app, n'existe pas. C'est la
+7. **Le libellé du champ de l'envie**, codé dans l'après-midi du 10.09. David a dit « l'envie du
+   moment », puis « mot du jour ». C'est écrit « CE QUE TU AIMERAIS FAIRE » à l'écran, parce que la
+   chose meurt avec le créneau et pas avec la journée, et parce que le mot « envie » était déjà pris
+   par les deux pastilles 💬 et ⚡ juste au-dessus. C'est un mot d'interface, réversible en une minute.
+8. **Une commande** : l'icône de l'Étincelle, le geste central de l'app, n'existe pas. C'est la
    priorité 1 de dessin.
+
+## 5 bis · TA CARTE 340 × 70 A UNE LIGNE DE PLUS (codé le 10.09, à regarder en premier)
+
+David a tranché dans la journée et c'est déjà codé : une personne peut écrire **une envie du moment**
+(60 signes) en ouvrant son créneau. Elle meurt avec le créneau.
+
+Ce que ça fait à ton dessin, exactement :
+- **Ton SVG de 340 × 70 n'a pas été touché.** La phrase est posée en dessous, hors du SVG.
+- Elle est en gris à 11,5 px, entre guillemets français, sur une seule ligne, coupée par des points
+  de suspension si elle dépasse. Elle démarre à 21,5 % de la largeur, c'est à dire alignée sous la
+  colonne de texte et non sous la photo.
+- **Une carte sans envie garde exactement la hauteur qu'elle avait.** Rien ne bouge dans ce cas.
+- Le chiffre de 60 signes vient d'une mesure, pas d'une intuition : dans la colonne de texte de ton
+  SVG (260 px), seuls 50 signes tiennent à 10 px. C'est pour ça que la ligne est passée en dessous.
+- Un détail que je signale parce que c'est ta charte : le gris utilisé est `#706F6F`, le tien est
+  `#6F6F6E`. Invisible à l'œil, mais c'est une couleur écrite à la main au lieu d'être prise dans ta
+  palette, exactement le défaut décrit à l'alerte 2. C'est signalé à la session qui l'a codé.
+
+Si cette ligne sous ta carte ne te va pas, c'est le moment de le dire : elle vient de naître.
 
 ## 6 · LE PROFIL (contrat écrit le 08.09, ton visuel attendu)
 
 Décision prise sur le fond : **ce n'est pas un profil de dating.** Pas de catalogue de soi. Un
 profil de confiance minimal ; ce que la personne veut MAINTENANT vit sur le créneau, pas sur le profil.
 
-**Ce qui existe déjà, vérifié dans le code au 10.09** : 1 à 5 photos, modérées une par une,
-réordonnables · l'aperçu en BANDE de vignettes dans le Profil (codé ce matin, voir §5 question 6 :
-identité à gauche, la bande, une pilule vers la page complète ; un seul emplacement libre est montré,
-jamais une rangée de cases vides) · Angel · notifications · personnes gardées · supprimer mon compte ·
-déconnexion.
+**Ce qui existe déjà, vérifié dans le code au 10.09 en fin de journée** : 1 à 5 photos, modérées une
+par une, réordonnables · l'aperçu en BANDE de vignettes (voir §5 question 6) · une section « MA BIO »
+(zone de trois lignes, 180 signes, un bouton rose « Enregistrer » qui n'apparaît que si on a modifié) ·
+l'envie du moment sur le créneau (60 signes, voir §5 bis) · Angel · notifications · personnes gardées ·
+supprimer mon compte · déconnexion. La bio et l'envie passent par un filtre qui refuse les sites, les
+numéros, les identifiants et les adresses de rue.
 
-**Ce qui est décidé mais PAS ENCORE codé** : la bio courte filtrée · la phrase du moment (140 signes,
-elle vit sur le créneau et meurt avec lui) · l'option « mon âge est visible » · la liste des personnes
+**Ce qui est décidé mais PAS ENCORE codé** : l'option « mon âge est visible » · la liste des personnes
 bloquées avec le déblocage · l'invisibilité à mon répertoire · les Conditions réelles.
 
-**Attention à ne pas confondre** : ta page Profil montre jusqu'à cinq photos, mais la fiche que les
-AUTRES voient n'en montre toujours qu'une, sans bio et sans phrase du moment.
+**La fiche que les autres voient** (la feuille qui s'ouvre quand on tape sur une carte) montre
+maintenant, dans cet ordre : photo, prénom, âge, humeur, heure commune, l'envie du moment en gras
+15 px prune, la bio en 13 px gris, puis signaler et bloquer. **Elle ne montre toujours qu'UNE photo**,
+même si ta page Profil en accepte cinq.
 
 **Ce qu'il ne fera pas, et c'est voulu** : passions, métier, études, taille, astro, alcool, tabac,
 enfants, religion, politique, origine, Spotify, Instagram, tests de personnalité, score de fiabilité
 affiché, « qui a vu mon profil », « en ligne », stories, album privé, vérification par selfie.
 
-**Ce qui t'attend là-dedans** : les trois réglages de la bande (question 6), l'écran de recadrage,
+**Ce qui t'attend là-dedans** : les trois réglages de la bande (question 6), la mise en page de la
+section « MA BIO » et de la fiche vue par les autres, l'écran de recadrage,
 l'état sans aucune photo (aujourd'hui un aplat rose avec l'initiale), et le ton des messages de refus
 quand le filtre bloque un numéro de téléphone ou une adresse.
 
@@ -235,13 +261,14 @@ principal · les couleurs hors palette remplacées par des teintes tirées de la
 
 **Qui attend ta réponse :** le trait vert (question 1) · la couleur des heures (2) · la couleur du
 bouton (3) · le mot-symbole (4) · la taille du texte de la fiche (5) · les trois réglages de la bande
-de photos (6) · l'icône de l'Étincelle et le branchement des 65 SVG qui dorment (7).
+de photos (6) · le libellé du champ de l'envie (7) · l'icône de l'Étincelle et le branchement des
+65 SVG qui dorment (8) · et la ligne d'envie sous ta carte (§5 bis).
 
 Estimation honnête, avec marge : une semaine et demie de code pour tout, pas moins.
 
 ---
 
-**Ce qu'on attend de toi, en une ligne :** réponds aux sept questions du §5, dans l'ordre, même par
+**Ce qu'on attend de toi, en une ligne :** réponds aux huit questions du §5, dans l'ordre, même par
 un mot chacune. Tout le reste peut attendre.
 
 _Version du 10.09.2026, mise à jour en début d'après-midi (les trois chiffres d'Apple, §4 bis) (la bande de photos du Profil a été codée
