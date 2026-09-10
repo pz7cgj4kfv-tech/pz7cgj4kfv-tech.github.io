@@ -126,7 +126,7 @@ grands » · vous ouvrez l'app plus de six fois dans l'heure sans raison · le m
 Le canevas avec les écrans dessinés :
 https://claude.ai/code/artifact/85591e54-007a-4409-9cc9-953f1ad0fbb2
 
-## 5 · LES SIX QUESTIONS QUI SONT À TOI (rien n'est codé tant que tu n'as pas répondu)
+## 5 · LES SEPT QUESTIONS QUI SONT À TOI (rien n'est codé tant que tu n'as pas répondu)
 
 Chacune contredit une de tes décisions ou touche ta charte. Personne ne les tranchera à ta place.
 
@@ -142,7 +142,13 @@ Chacune contredit une de tes décisions ou touche ta charte. Personne ne les tra
    qui grandit quand la personne agrandit les caractères de son téléphone. Soit tu gardes tes
    tailles (c'est ta spec, c'est permis, mais des gens ne liront pas), soit on monte et la fiche
    perd une ligne ou grandit. Les deux ne tiennent pas ensemble.
-6. **Une commande** : l'icône de l'Étincelle, le geste central de l'app, n'existe pas. C'est la
+6. **La bande de photos du Profil, codée le 10.09** (voir §6). Trois choses sont à toi :
+   la géométrie (bande de 92 px de haut, 3 px d'écart, coins à 20, la photo principale 1,8 fois
+   plus large que les autres) · la pilule qui ouvre la page complète, dessinée en contour rose
+   plutôt qu'en aplat prune pour ne pas voler l'accent au bouton d'ouverture de créneau ·
+   l'identité (prénom, âge, genre) alignée à gauche AU-DESSUS de la bande. C'est modifiable en
+   une heure, dis simplement ce qui te gêne.
+7. **Une commande** : l'icône de l'Étincelle, le geste central de l'app, n'existe pas. C'est la
    priorité 1 de dessin.
 
 ## 6 · LE PROFIL (contrat écrit le 08.09, ton visuel attendu)
@@ -150,19 +156,26 @@ Chacune contredit une de tes décisions ou touche ta charte. Personne ne les tra
 Décision prise sur le fond : **ce n'est pas un profil de dating.** Pas de catalogue de soi. Un
 profil de confiance minimal ; ce que la personne veut MAINTENANT vit sur le créneau, pas sur le profil.
 
-**Ce qu'il fera** : 1 à 5 photos (principale + 4), modérées une par une, réordonnables · une bio
-courte filtrée · l'option « mon âge est visible » · la phrase du moment (140 signes, elle vit sur le
-créneau et meurt avec lui) · les personnes bloquées (compteur, liste, déblocage) · invisibilité à mon
-répertoire · Angel · notifications · personnes gardées · Aide, Sécurité, Confidentialité, Conditions
-réelles, Contact · supprimer mon compte · déconnexion.
+**Ce qui existe déjà, vérifié dans le code au 10.09** : 1 à 5 photos, modérées une par une,
+réordonnables · l'aperçu en BANDE de vignettes dans le Profil (codé ce matin, voir §5 question 6 :
+identité à gauche, la bande, une pilule vers la page complète ; un seul emplacement libre est montré,
+jamais une rangée de cases vides) · Angel · notifications · personnes gardées · supprimer mon compte ·
+déconnexion.
+
+**Ce qui est décidé mais PAS ENCORE codé** : la bio courte filtrée · la phrase du moment (140 signes,
+elle vit sur le créneau et meurt avec lui) · l'option « mon âge est visible » · la liste des personnes
+bloquées avec le déblocage · l'invisibilité à mon répertoire · les Conditions réelles.
+
+**Attention à ne pas confondre** : ta page Profil montre jusqu'à cinq photos, mais la fiche que les
+AUTRES voient n'en montre toujours qu'une, sans bio et sans phrase du moment.
 
 **Ce qu'il ne fera pas, et c'est voulu** : passions, métier, études, taille, astro, alcool, tabac,
 enfants, religion, politique, origine, Spotify, Instagram, tests de personnalité, score de fiabilité
 affiché, « qui a vu mon profil », « en ligne », stories, album privé, vérification par selfie.
 
-**Ce qui t'attend là-dedans** : la mise en page de la page, la grille de photos (ajouter, réordonner,
-supprimer), l'écran de recadrage, l'état vide (aucune photo), et le ton des messages de refus quand
-le filtre bloque un numéro de téléphone ou une adresse.
+**Ce qui t'attend là-dedans** : les trois réglages de la bande (question 6), l'écran de recadrage,
+l'état sans aucune photo (aujourd'hui un aplat rose avec l'initiale), et le ton des messages de refus
+quand le filtre bloque un numéro de téléphone ou une adresse.
 
 ## 7 · LES TRUCS FUN (ton idée, elle est vivante et personne ne l'a enterrée)
 
@@ -185,16 +198,17 @@ principal · les couleurs hors palette remplacées par des teintes tirées de la
 « brouillon » et la bannière d'erreur cachés · les cibles tactiles montées à 44 px.
 
 **Qui attend ta réponse :** le trait vert (question 1) · la couleur des heures (2) · la couleur du
-bouton (3) · le mot-symbole (4) · la taille du texte de la fiche (5) · l'icône de l'Étincelle et le
-branchement des 65 SVG qui dorment (6).
+bouton (3) · le mot-symbole (4) · la taille du texte de la fiche (5) · les trois réglages de la bande
+de photos (6) · l'icône de l'Étincelle et le branchement des 65 SVG qui dorment (7).
 
 Estimation honnête, avec marge : une semaine et demie de code pour tout, pas moins.
 
 ---
 
-**Ce qu'on attend de toi, en une ligne :** réponds aux six questions du §5, dans l'ordre, même par
+**Ce qu'on attend de toi, en une ligne :** réponds aux sept questions du §5, dans l'ordre, même par
 un mot chacune. Tout le reste peut attendre.
 
-_Version du 10.09.2026. Régénéré à chaque changement. Les documents complets derrière ce résumé :
+_Version du 10.09.2026, mise à jour en fin de matinée (la bande de photos du Profil a été codée
+entre-temps). Régénéré à chaque changement. Les documents complets derrière ce résumé :
 le dossier graphique (41 surfaces écran par écran), le tri des deux challenges, le contrat de la
 page Profil. Demande-les si tu veux le détail._
