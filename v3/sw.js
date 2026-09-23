@@ -8,5 +8,11 @@
 // les requêtes vers la base tombaient en ERR_FAILED dès que le service worker prenait la page
 // (Chrome bloque les requêtes d'un service worker vers une adresse privée). Installable sans
 // gestionnaire de fetch : oui, sur iOS comme sur Chrome depuis 2023.
+// 23.09 · LES NOTIFICATIONS WEB (David : « exactement comme une vraie app »). OneSignal veut son propre
+// service worker ; deux workers sur la même portée s'excluent. Le sien s'importe donc ICI : ce fichier
+// reste le seul worker du site, sans cache et sans gestionnaire de fetch, et il reçoit les push.
+// (Sur iPhone : seulement une fois l'app posée sur l'écran d'accueil, iOS 16.4 ou plus.)
+importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js')
+
 self.addEventListener('install', () => { self.skipWaiting() })
 self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()) })
