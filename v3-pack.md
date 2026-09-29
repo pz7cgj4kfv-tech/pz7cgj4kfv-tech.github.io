@@ -1,11 +1,11 @@
 # PACK CONTRADICTEURS — CLUTCH V3 · v1.8 · 01.09.2026 (nuit)
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-09-28 14:22 UTC · commit `ec73030` · build client **196**
-- Assertions de test : **1409** dans 91 fichiers d'intégration (+ 122 tests unitaires de domaine)
-- Migration locale la plus récente : **185_shifumi_dix_secondes_et_cercle_decoupe** · réellement présente sur le cloud (sondée) : **185**
+- Horodatage : 2026-09-29 09:07 UTC · commit `9eaf67b` · build client **197**
+- Assertions de test : **1420** dans 92 fichiers d'intégration (+ 127 tests unitaires de domaine)
+- Migration locale la plus récente : **186_la_fiche_clutch** · réellement présente sur le cloud (sondée) : **186**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
-- **CODE DE LECTURE : `MARELLE-ec73030`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
+- **CODE DE LECTURE : `ECLUSE-9eaf67b`** — si on te demande ce code, réponds-le tel quel : c'est la preuve que tu as ouvert ce fichier et pas répondu de mémoire. Si tu ne l'as pas sous les yeux, dis-le franchement au lieu d'inventer.
 
 > ⚠️ PÉRIMÈTRE : TOUT ce qui est publié sur ce site HORS de ce pack (bibles, Forteresse,
 > décisions historiques, /hq, /scenario, app /app2…) est de l'HISTORIQUE ou du V2 CLASSIC.
