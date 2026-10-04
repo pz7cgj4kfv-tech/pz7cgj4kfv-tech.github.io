@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mel, 03.10.2026 (zip du 04.10), recadré par Claude sur le dessin (viewBox mesuré) -->
+<!-- Mel, 03.10.2026 (zip du 04.10), recadré par Claude sur le dessin (viewBox mesuré) ; 04.10 : recadré au BORD de l'anneau gris (getBBox), zéro liseré blanc -->
 <!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg version="1.1" id="Calque_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="179.96 303.16 235.87 235.87"  xml:space="preserve">
+	 viewBox="184.45 307.65 226.77 226.77"  xml:space="preserve">
 <g>
 	<path fill="#FFFFFF" d="M407.578,421.025c0,60.609-49.133,109.727-109.738,109.727c-60.625,0-109.746-49.117-109.746-109.727
 		c0-60.602,49.121-109.742,109.746-109.742C358.445,311.283,407.578,360.424,407.578,421.025z"/>

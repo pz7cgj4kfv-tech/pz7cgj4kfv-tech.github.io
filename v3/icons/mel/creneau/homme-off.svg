@@ -1,5 +1,6 @@
+<!-- 04.10 (David + Mel, « l'anneau gris au bord du bouton, ça fait 15 fois ») : viewBox recadré au bord du dessin (getBBox) -->
 <svg version="1.1" id="Calque_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="229.7 353.2 138.2 137.2" xml:space="preserve">
+	 viewBox="231.25 354.71 134.2 134.2" xml:space="preserve">
 <g>
 	<path fill="#FFFFFF" d="M365.453,421.805c0,37.062-30.031,67.102-67.102,67.102c-37.062,0-67.102-30.039-67.102-67.102
 		c0-37.055,30.039-67.094,67.102-67.094C335.422,354.711,365.453,384.75,365.453,421.805z"/>

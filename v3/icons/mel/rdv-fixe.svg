@@ -2,8 +2,9 @@
 <!-- Mel, 03.10.2026 (zip du 04.10), recadré par Claude sur le dessin (viewBox mesuré) -->
 <!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- 04.10 (David + Mel, « l'anneau gris au bord du bouton, ça fait 15 fois ») : viewBox recadré au bord du dessin (getBBox) -->
 <svg version="1.1" id="Calque_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="238.73 361.93 117.94 117.94"  xml:space="preserve">
+	 viewBox="240.96 364.23 113.39 113.39"  xml:space="preserve">
 <g>
 	<path fill="#E6358B" d="M352.52,420.922c0,30.301-24.559,54.871-54.863,54.871c-30.309,0-54.871-24.57-54.871-54.871
 		s24.562-54.871,54.871-54.871C327.961,366.051,352.52,390.621,352.52,420.922z"/>
