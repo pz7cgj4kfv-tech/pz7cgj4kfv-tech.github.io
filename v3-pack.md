@@ -1,7 +1,7 @@
 # PACK CONTRADICTEURS — CLUTCH V3 · v1.8 · 01.09.2026 (nuit)
 
 ## CURRENT STATE ID (généré automatiquement — aucune valeur saisie à la main)
-- Horodatage : 2026-10-22 18:30 UTC · commit `09dd0ab` · build client **283**
+- Horodatage : 2026-10-22 18:32 UTC · commit `09dd0ab` · build client **283**
 - Assertions de test : **1983** dans 137 fichiers d'intégration (+ 156 tests unitaires de domaine)
 - Migration locale la plus récente : **268_minko_tout_court** · réellement présente sur le cloud (sondée) : **268**
 - Si ces deux nombres diffèrent, le cloud attend un `supabase db push` (fait par Claude Code depuis sa session — 27.08).
